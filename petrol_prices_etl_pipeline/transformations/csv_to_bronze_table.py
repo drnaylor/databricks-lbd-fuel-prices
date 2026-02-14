@@ -4,10 +4,10 @@ from pyspark.sql import functions as F
 from pyspark.sql.types import BooleanType, DoubleType, IntegerType, StringType, StructType, StructField, DecimalType
 
 # Define the path to the source data
-file_path = f"/Volumes/bronze/petrol_prices/csv"
+prices_file_path = f"/Volumes/bronze/petrol_prices/csv/prices"
 
 # Define the CSV definition that we want to pull into a bronze layer
-schema = StructType(
+prices_schema = StructType(
   [
     StructField("latest_update_timestamp", StringType(), True),
     StructField("mft.name", StringType(), True),
@@ -51,10 +51,10 @@ def prices_raw():
 
   return (spark.readStream
     .format("cloudFiles")
-    .schema(schema)
+    .schema(prices_schema)
     .option("header", "true")
     .option("cloudFiles.format", "csv")
-    .load(file_path)
+    .load(prices_file_path)
     .select(
         F.col("latest_update_timestamp").alias("last_update_string"),
         F.to_timestamp(
@@ -83,4 +83,35 @@ def prices_raw():
         F.col("`forecourts.fuel_price.B7S`").alias("diesel"),
         F.col("`forecourts.fuel_price.B10`").alias("biodiesel"),
         F.col("`forecourts.fuel_price.HV0`").alias("hydrogen")
+    ))
+
+
+postcode_file_path = f"/Volumes/bronze/petrol_prices/csv/postcode"
+
+postcode_schema = StructType(
+  [
+    StructField("id", IntegerType(), False),
+    StructField("postcode", StringType(), False),
+    StructField("latitude", DecimalType(15,10), True),
+    StructField("longitude", DecimalType(15,10), True)
+  ]
+)
+
+@dp.table(
+  name="bronze.petrol_prices.postcodes",
+  comment="Raw data from the Postcodes CSV."
+)
+def postcodes_raw():
+  return (spark.readStream
+    .format("cloudFiles")
+    .schema(postcode_schema)
+    .option("header", "true")
+    .option("cloudFiles.format", "csv")
+    .load(postcode_file_path)
+    .select(
+        F.current_timestamp().alias("ingestion_time"),
+        F.col("id"),
+        F.col("postcode"),
+        F.col("latitude"),
+        F.col("longitude")
     ))
