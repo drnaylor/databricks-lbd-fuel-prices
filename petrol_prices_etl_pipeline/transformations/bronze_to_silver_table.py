@@ -30,12 +30,12 @@ def silver_table(clean_price):
                 F.col("country"),
                 F.col("latitude"),
                 F.col("longitude"),
-                clean_price("super_unleaded"),
-                clean_price("unleaded"),
-                clean_price("premium_diesel"),
-                clean_price("diesel"),
-                clean_price("biodiesel"),
-                clean_price("hydrogen")
+                clean_price("E5"),
+                clean_price("E10"),
+                clean_price("B7P"),
+                clean_price("B7S"),
+                clean_price("B10"),
+                clean_price("HV0")
             )
     )
 
@@ -45,12 +45,12 @@ def silver_table(clean_price):
 )
 # They must have a fuel price, or closed
 @dp.expect_or_drop("closed_or_price", """
-                   unleaded IS NOT NULL OR 
-                      super_unleaded IS NOT NULL OR
-                      diesel IS NOT NULL OR
-                      premium_diesel IS NOT NULL OR
-                      biodiesel IS NOT NULL OR
-                      hydrogen IS NOT NULL OR
+                   `E10` IS NOT NULL OR 
+                      `E5` IS NOT NULL OR
+                      `B7S` IS NOT NULL OR
+                      `B7P` IS NOT NULL OR
+                      `B10` IS NOT NULL OR
+                      `HV0` IS NOT NULL OR
                       temporary_closure <> TRUE OR
                       permanent_closure <> TRUE
                    """)
@@ -60,11 +60,11 @@ def silver_table(clean_price):
                    LOWER(trading_name) NOT LIKE '%-new'
                    """)
 @dp.expect_or_fail("no_outrageous_fuel_prices", """
-                   (super_unleaded IS NULL OR super_unleaded BETWEEN 50.00 AND 500.00) AND
-                   (unleaded IS NULL OR unleaded BETWEEN 50.00 AND 500.00) AND
-                   (diesel IS NULL OR diesel BETWEEN 50.00 AND 500.00) AND
-                   (premium_diesel IS NULL OR premium_diesel BETWEEN 50.00 AND 500.00) AND
-                   (biodiesel IS NULL OR biodiesel BETWEEN 50.00 AND 500.00)
+                   (`E5` IS NULL OR `E5` BETWEEN 50.00 AND 500.00) AND
+                   (`E10` IS NULL OR `E10` BETWEEN 50.00 AND 500.00) AND
+                   (`B7S` IS NULL OR `B7S` BETWEEN 50.00 AND 500.00) AND
+                   (`B7P` IS NULL OR `B7P` BETWEEN 50.00 AND 500.00) AND
+                   (`B10` IS NULL OR `B10` BETWEEN 50.00 AND 500.00)
                    """)
 def prices_cleaned():
     def clean_price(col_name: str) -> Column:
@@ -105,3 +105,13 @@ def postcode():
                 "latitude"
             )
 )
+    
+@dp.materialized_view(
+    name="silver.petrol_prices.fuel_types",
+    comment="Fuel types from the Petrol Prices API."
+)
+def fuel_types():
+  return spark.read.table("bronze.petrol_prices.fuel_types")
+
+    
+

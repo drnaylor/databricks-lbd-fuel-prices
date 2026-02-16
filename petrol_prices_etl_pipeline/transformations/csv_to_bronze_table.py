@@ -77,12 +77,12 @@ def prices_raw():
         F.col("`forecourts.location.country`").alias("country"),
         F.col("`forecourts.location.latitude`").alias("latitude"),
         F.col("`forecourts.location.longitude`").alias("longitude"),
-        F.col("`forecourts.fuel_price.E5`").alias("super_unleaded"),
-        F.col("`forecourts.fuel_price.E10`").alias("unleaded"),
-        F.col("`forecourts.fuel_price.B7P`").alias("premium_diesel"),
-        F.col("`forecourts.fuel_price.B7S`").alias("diesel"),
-        F.col("`forecourts.fuel_price.B10`").alias("biodiesel"),
-        F.col("`forecourts.fuel_price.HV0`").alias("hydrogen")
+        F.col("`forecourts.fuel_price.E5`").alias("E5"),
+        F.col("`forecourts.fuel_price.E10`").alias("E10"),
+        F.col("`forecourts.fuel_price.B7P`").alias("B7P"),
+        F.col("`forecourts.fuel_price.B7S`").alias("B7S"),
+        F.col("`forecourts.fuel_price.B10`").alias("B10"),
+        F.col("`forecourts.fuel_price.HV0`").alias("HV0")
     ))
 
 
@@ -114,4 +114,28 @@ def postcodes_raw():
         F.col("postcode"),
         F.col("latitude"),
         F.col("longitude")
+    ))
+  
+fuel_types_file_path = f"/Volumes/bronze/petrol_prices/csv/fuel_types/fuel_types.csv"
+
+fuel_types_schema = StructType(
+  [
+    StructField("fuel_type_code", StringType(), False),
+    StructField("fuel_type_description", StringType(), False),
+  ]
+)
+
+@dp.table(
+  name="bronze.petrol_prices.fuel_types",
+  comment="Fuel types from the fuel types CSV"
+)
+def fuel_types_raw():
+  return (spark.read
+    .format("csv")
+    .schema(fuel_types_schema)
+    .option("header", "true")
+    .load(fuel_types_file_path)
+    .select(
+        F.col("fuel_type_code"),
+        F.col("fuel_type_description")
     ))

@@ -9,8 +9,171 @@
       "name": "18b00571",
       "displayName": "uncleaned_latest_prices",
       "queryLines": [
-        "SELECT * FROM gold.petrol_prices.uncleaned_latest_prices"
+        "SELECT * FROM gold.petrol_prices.uncleaned_latest_prices p\n",
+        "INNER JOIN gold.petrol_prices.fuel_types f USING (fuel_type_code)"
       ]
+    },
+    {
+      "name": "be70826a",
+      "displayName": "Nearby Fuel Rates and Location Insights",
+      "queryLines": [
+        "WITH base_model AS (\n",
+        "  SELECT \n",
+        "    name,\n",
+        "    forecourt_id,\n",
+        "    trading_name,\n",
+        "    brand_name,\n",
+        "    forecourt_type,\n",
+        "    l.postcode,\n",
+        "    fuel_type_description,\n",
+        "    price,\n",
+        "    p.geographic_postcode,\n",
+        "    p.outward_postcode,\n",
+        "    p.latitude,\n",
+        "    p.longitude,\n",
+        "    CASE WHEN :start_postcode IS NOT NULL THEN (st_distancespheroid(st_geomfromtext( concat('POINT(', p.longitude, ' ', p.latitude, ')')), st_geomfromtext(concat('POINT(', sp.longitude, ' ', sp.latitude, ')'))) / 1000) -- distance in km\n",
+        "    ELSE NULL END AS distance\n",
+        "  FROM latest_prices l\n",
+        "  INNER JOIN postcodes p USING (postcode)\n",
+        "  INNER JOIN fuel_types f USING (fuel_type_code)\n",
+        "  LEFT OUTER JOIN postcodes sp ON sp.postcode = :start_postcode\n",
+        "  WHERE NOT array_contains(:forecourts, name) OR :forecourts IS NULL\n",
+        "),\n",
+        "mpg_calc AS (\n",
+        "  SELECT \n",
+        "    bm.*,\n",
+        "    CASE WHEN :mpg IS NOT NULL AND :mpg > 0 AND bm.distance IS NOT NULL THEN (2.825 * bm.distance / :mpg) * bm.price\n",
+        "    ELSE 0 END AS cost_of_driving \n",
+        "  FROM base_model bm\n",
+        "),\n",
+        "driving_calc AS (\n",
+        "  SELECT \n",
+        "    mc.*,\n",
+        "    CASE WHEN :amount_to_fill > 0 THEN mc.price * :amount_to_fill\n",
+        "    ELSE NULL END AS fill_cost,\n",
+        "    CASE WHEN :amount_to_fill > 0 THEN mc.price * :amount_to_fill + mc.cost_of_driving\n",
+        "    ELSE NULL END AS total_cost\n",
+        "  FROM mpg_calc mc\n",
+        ")\n",
+        "SELECT \n",
+        "  dc.* EXCEPT(total_cost, cost_of_driving, fill_cost, price),\n",
+        "  price AS price_per_litre_pence,\n",
+        "  price / 100 AS price_per_litre_pounds,\n",
+        "  cost_of_driving AS cost_of_driving_pence,\n",
+        "  cost_of_driving / 100 AS cost_of_driving_pounds,\n",
+        "  fill_cost AS fill_cost_pence,\n",
+        "  fill_cost / 100 AS fill_cost_pounds,\n",
+        "  total_cost AS total_cost_pence,\n",
+        "  total_cost / 100 AS total_cost_pounds,\n",
+        "  -- aggregates\n",
+        "  MIN(total_cost) OVER(PARTITION BY 1) / 100 AS cheapest_cost_pounds,\n",
+        "  MIN_BY(distance, total_cost) OVER(PARTITION BY 1) AS cheapest_distance,\n",
+        "  MIN_BY(postcode, total_cost) OVER(PARTITION BY 1) AS cheapest_postcode,\n",
+        "  MIN_BY(name, total_cost) OVER(PARTITION BY 1) AS cheapest_name\n",
+        "FROM driving_calc dc\n",
+        "WHERE dc.distance IS NULL OR dc.distance <= :distance_limit\n",
+        "ORDER BY total_cost_pence ASC NULLS LAST"
+      ],
+      "parameters": [
+        {
+          "displayName": "mpg",
+          "keyword": "mpg",
+          "dataType": "DECIMAL",
+          "defaultSelection": {
+            "values": {
+              "dataType": "DECIMAL",
+              "values": [
+                {
+                  "value": "35"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "start_postcode",
+          "keyword": "start_postcode",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "NE6 2HL"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "amount_to_fill",
+          "keyword": "amount_to_fill",
+          "dataType": "DECIMAL",
+          "defaultSelection": {
+            "values": {
+              "dataType": "DECIMAL",
+              "values": [
+                {
+                  "value": "45"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "distance_limit",
+          "keyword": "distance_limit",
+          "dataType": "DECIMAL",
+          "defaultSelection": {
+            "values": {
+              "dataType": "DECIMAL",
+              "values": [
+                {
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "forecourts",
+          "keyword": "forecourts",
+          "dataType": "STRING",
+          "complexType": "MULTI",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "COSTCO WHOLESALE UK LIMITED"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "catalog": "gold",
+      "schema": "petrol_prices"
+    },
+    {
+      "name": "cb49dfd8",
+      "displayName": "Postcode Selection",
+      "queryLines": [
+        "SELECT NULL AS postcode\n",
+        "UNION ALL\n",
+        "SELECT DISTINCT postcode FROM postcodes;"
+      ],
+      "catalog": "gold",
+      "schema": "petrol_prices"
+    },
+    {
+      "name": "e6c87f31",
+      "displayName": "Forecourt Names",
+      "queryLines": [
+        "SELECT DISTINCT name FROM latest_prices"
+      ],
+      "catalog": "gold",
+      "schema": "petrol_prices"
     }
   ],
   "pages": [
@@ -183,22 +346,18 @@
                       "expression": "`longitude`"
                     },
                     {
-                      "name": "avg(unleaded)",
-                      "expression": "AVG(`unleaded`)"
-                    },
-                    {
-                      "name": "unleaded",
-                      "expression": "`unleaded`"
+                      "name": "fuel_type_code",
+                      "expression": "`fuel_type_code`"
                     }
                   ],
-                  "disaggregated": false
+                  "disaggregated": true
                 }
               }
             ],
             "spec": {
               "version": 2,
               "frame": {
-                "title": "Unleaded Prices by Forecourt Type (Map)",
+                "title": "Forecourt Locations (Map)",
                 "showTitle": true
               },
               "widgetType": "symbol-map",
@@ -235,21 +394,13 @@
                     ]
                   }
                 },
-                "size": {
-                  "fieldName": "unleaded",
-                  "scale": {
-                    "type": "quantitative"
-                  },
-                  "displayName": "Unleaded Price"
-                },
                 "extra": [
                   {
                     "fieldName": "forecourt_type",
                     "displayName": "Forecourt Type"
                   },
                   {
-                    "fieldName": "avg(unleaded)",
-                    "displayName": "Unleaded Price"
+                    "fieldName": "fuel_type_code"
                   }
                 ]
               }
@@ -272,24 +423,28 @@
                   "datasetName": "18b00571",
                   "fields": [
                     {
-                      "name": "min(unleaded)",
-                      "expression": "MIN(`unleaded`)"
+                      "name": "fuel_type_description",
+                      "expression": "`fuel_type_description`"
                     },
                     {
-                      "name": "q1(unleaded)",
-                      "expression": "PERCENTILE(`unleaded`, 0.25)"
+                      "name": "min(price)",
+                      "expression": "MIN(`price`)"
                     },
                     {
-                      "name": "median(unleaded)",
-                      "expression": "MEDIAN(`unleaded`)"
+                      "name": "q1(price)",
+                      "expression": "PERCENTILE(`price`, 0.25)"
                     },
                     {
-                      "name": "q3(unleaded)",
-                      "expression": "PERCENTILE(`unleaded`, 0.75)"
+                      "name": "median(price)",
+                      "expression": "MEDIAN(`price`)"
                     },
                     {
-                      "name": "max(unleaded)",
-                      "expression": "MAX(`unleaded`)"
+                      "name": "q3(price)",
+                      "expression": "PERCENTILE(`price`, 0.75)"
+                    },
+                    {
+                      "name": "max(price)",
+                      "expression": "MAX(`price`)"
                     }
                   ],
                   "disaggregated": false
@@ -300,25 +455,31 @@
               "version": 3,
               "frame": {
                 "showTitle": true,
-                "title": "Unleaded (E10) Price Distribution"
+                "title": "Fuel Distribution (pence/litre)"
               },
               "widgetType": "box",
               "encodings": {
+                "x": {
+                  "fieldName": "fuel_type_description",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
                 "y": {
                   "whiskerStart": {
-                    "fieldName": "min(unleaded)"
+                    "fieldName": "min(price)"
                   },
                   "boxStart": {
-                    "fieldName": "q1(unleaded)"
+                    "fieldName": "q1(price)"
                   },
                   "boxMid": {
-                    "fieldName": "median(unleaded)"
+                    "fieldName": "median(price)"
                   },
                   "boxEnd": {
-                    "fieldName": "q3(unleaded)"
+                    "fieldName": "q3(price)"
                   },
                   "whiskerEnd": {
-                    "fieldName": "max(unleaded)"
+                    "fieldName": "max(price)"
                   },
                   "axis": {
                     "hideTitle": true
@@ -333,259 +494,7 @@
           "position": {
             "x": 0,
             "y": 16,
-            "width": 3,
-            "height": 9
-          }
-        },
-        {
-          "widget": {
-            "name": "fba09f1b",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "18b00571",
-                  "fields": [
-                    {
-                      "name": "min(super_unleaded)",
-                      "expression": "MIN(`super_unleaded`)"
-                    },
-                    {
-                      "name": "q1(super_unleaded)",
-                      "expression": "PERCENTILE(`super_unleaded`, 0.25)"
-                    },
-                    {
-                      "name": "median(super_unleaded)",
-                      "expression": "MEDIAN(`super_unleaded`)"
-                    },
-                    {
-                      "name": "q3(super_unleaded)",
-                      "expression": "PERCENTILE(`super_unleaded`, 0.75)"
-                    },
-                    {
-                      "name": "max(super_unleaded)",
-                      "expression": "MAX(`super_unleaded`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "frame": {
-                "showTitle": true,
-                "title": "Super Unleaded (E5) Price Distribution"
-              },
-              "widgetType": "box",
-              "encodings": {
-                "y": {
-                  "whiskerStart": {
-                    "fieldName": "min(super_unleaded)"
-                  },
-                  "boxStart": {
-                    "fieldName": "q1(super_unleaded)"
-                  },
-                  "boxMid": {
-                    "fieldName": "median(super_unleaded)"
-                  },
-                  "boxEnd": {
-                    "fieldName": "q3(super_unleaded)"
-                  },
-                  "whiskerEnd": {
-                    "fieldName": "max(super_unleaded)"
-                  },
-                  "axis": {
-                    "hideTitle": true
-                  },
-                  "scale": {
-                    "type": "quantitative",
-                    "reverse": false
-                  },
-                  "format": {
-                    "type": "number-plain",
-                    "abbreviation": "compact",
-                    "decimalPlaces": {
-                      "type": "exact",
-                      "places": 2
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "position": {
-            "x": 3,
-            "y": 16,
-            "width": 3,
-            "height": 9
-          }
-        },
-        {
-          "widget": {
-            "name": "e0b81591",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "18b00571",
-                  "fields": [
-                    {
-                      "name": "min(diesel)",
-                      "expression": "MIN(`diesel`)"
-                    },
-                    {
-                      "name": "q1(diesel)",
-                      "expression": "PERCENTILE(`diesel`, 0.25)"
-                    },
-                    {
-                      "name": "median(diesel)",
-                      "expression": "MEDIAN(`diesel`)"
-                    },
-                    {
-                      "name": "q3(diesel)",
-                      "expression": "PERCENTILE(`diesel`, 0.75)"
-                    },
-                    {
-                      "name": "max(diesel)",
-                      "expression": "MAX(`diesel`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "frame": {
-                "showTitle": true,
-                "title": "Diesel (B7S) Price Distribution"
-              },
-              "widgetType": "box",
-              "encodings": {
-                "y": {
-                  "whiskerStart": {
-                    "fieldName": "min(diesel)"
-                  },
-                  "boxStart": {
-                    "fieldName": "q1(diesel)"
-                  },
-                  "boxMid": {
-                    "fieldName": "median(diesel)"
-                  },
-                  "boxEnd": {
-                    "fieldName": "q3(diesel)"
-                  },
-                  "whiskerEnd": {
-                    "fieldName": "max(diesel)"
-                  },
-                  "axis": {
-                    "hideTitle": true
-                  },
-                  "scale": {
-                    "type": "quantitative",
-                    "reverse": false
-                  },
-                  "format": {
-                    "type": "number-plain",
-                    "abbreviation": "compact",
-                    "decimalPlaces": {
-                      "type": "exact",
-                      "places": 2
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "position": {
-            "x": 6,
-            "y": 16,
-            "width": 3,
-            "height": 9
-          }
-        },
-        {
-          "widget": {
-            "name": "b8752a58",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "18b00571",
-                  "fields": [
-                    {
-                      "name": "min(premium_diesel)",
-                      "expression": "MIN(`premium_diesel`)"
-                    },
-                    {
-                      "name": "q1(premium_diesel)",
-                      "expression": "PERCENTILE(`premium_diesel`, 0.25)"
-                    },
-                    {
-                      "name": "median(premium_diesel)",
-                      "expression": "MEDIAN(`premium_diesel`)"
-                    },
-                    {
-                      "name": "q3(premium_diesel)",
-                      "expression": "PERCENTILE(`premium_diesel`, 0.75)"
-                    },
-                    {
-                      "name": "max(premium_diesel)",
-                      "expression": "MAX(`premium_diesel`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "frame": {
-                "showTitle": true,
-                "title": "Super Diesel (B7P) Price Distribution"
-              },
-              "widgetType": "box",
-              "encodings": {
-                "y": {
-                  "whiskerStart": {
-                    "fieldName": "min(premium_diesel)"
-                  },
-                  "boxStart": {
-                    "fieldName": "q1(premium_diesel)"
-                  },
-                  "boxMid": {
-                    "fieldName": "median(premium_diesel)"
-                  },
-                  "boxEnd": {
-                    "fieldName": "q3(premium_diesel)"
-                  },
-                  "whiskerEnd": {
-                    "fieldName": "max(premium_diesel)"
-                  },
-                  "axis": {
-                    "hideTitle": true
-                  },
-                  "scale": {
-                    "type": "quantitative",
-                    "reverse": false
-                  },
-                  "format": {
-                    "type": "number-plain",
-                    "abbreviation": "compact",
-                    "decimalPlaces": {
-                      "type": "exact",
-                      "places": 2
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "position": {
-            "x": 9,
-            "y": 16,
-            "width": 3,
+            "width": 10,
             "height": 9
           }
         }
@@ -607,24 +516,28 @@
                   "datasetName": "c1cc37f0",
                   "fields": [
                     {
-                      "name": "min(unleaded)",
-                      "expression": "MIN(`unleaded`)"
+                      "name": "fuel_type_description",
+                      "expression": "`fuel_type_description`"
                     },
                     {
-                      "name": "q1(unleaded)",
-                      "expression": "PERCENTILE(`unleaded`, 0.25)"
+                      "name": "min(price)",
+                      "expression": "MIN(`price`)"
                     },
                     {
-                      "name": "median(unleaded)",
-                      "expression": "MEDIAN(`unleaded`)"
+                      "name": "q1(price)",
+                      "expression": "PERCENTILE(`price`, 0.25)"
                     },
                     {
-                      "name": "q3(unleaded)",
-                      "expression": "PERCENTILE(`unleaded`, 0.75)"
+                      "name": "median(price)",
+                      "expression": "MEDIAN(`price`)"
                     },
                     {
-                      "name": "max(unleaded)",
-                      "expression": "MAX(`unleaded`)"
+                      "name": "q3(price)",
+                      "expression": "PERCENTILE(`price`, 0.75)"
+                    },
+                    {
+                      "name": "max(price)",
+                      "expression": "MAX(`price`)"
                     }
                   ],
                   "disaggregated": false
@@ -635,28 +548,31 @@
               "version": 3,
               "frame": {
                 "showTitle": true,
-                "title": "Unleaded (E10) Price Distribution"
+                "title": "Price Distribution (pence/litre)"
               },
               "widgetType": "box",
               "encodings": {
+                "x": {
+                  "fieldName": "fuel_type_description",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
                 "y": {
                   "whiskerStart": {
-                    "fieldName": "min(unleaded)"
+                    "fieldName": "min(price)"
                   },
                   "boxStart": {
-                    "fieldName": "q1(unleaded)"
+                    "fieldName": "q1(price)"
                   },
                   "boxMid": {
-                    "fieldName": "median(unleaded)"
+                    "fieldName": "median(price)"
                   },
                   "boxEnd": {
-                    "fieldName": "q3(unleaded)"
+                    "fieldName": "q3(price)"
                   },
                   "whiskerEnd": {
-                    "fieldName": "max(unleaded)"
-                  },
-                  "axis": {
-                    "hideTitle": true
+                    "fieldName": "max(price)"
                   },
                   "scale": {
                     "type": "quantitative"
@@ -667,531 +583,9 @@
           },
           "position": {
             "x": 0,
-            "y": 24,
-            "width": 3,
+            "y": 13,
+            "width": 8,
             "height": 9
-          }
-        },
-        {
-          "widget": {
-            "name": "396a1c88",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "c1cc37f0",
-                  "fields": [
-                    {
-                      "name": "min(super_unleaded)",
-                      "expression": "MIN(`super_unleaded`)"
-                    },
-                    {
-                      "name": "q1(super_unleaded)",
-                      "expression": "PERCENTILE(`super_unleaded`, 0.25)"
-                    },
-                    {
-                      "name": "median(super_unleaded)",
-                      "expression": "MEDIAN(`super_unleaded`)"
-                    },
-                    {
-                      "name": "q3(super_unleaded)",
-                      "expression": "PERCENTILE(`super_unleaded`, 0.75)"
-                    },
-                    {
-                      "name": "max(super_unleaded)",
-                      "expression": "MAX(`super_unleaded`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "frame": {
-                "showTitle": true,
-                "title": "Super Unleaded (E5) Price Distribution"
-              },
-              "widgetType": "box",
-              "encodings": {
-                "y": {
-                  "whiskerStart": {
-                    "fieldName": "min(super_unleaded)"
-                  },
-                  "boxStart": {
-                    "fieldName": "q1(super_unleaded)"
-                  },
-                  "boxMid": {
-                    "fieldName": "median(super_unleaded)"
-                  },
-                  "boxEnd": {
-                    "fieldName": "q3(super_unleaded)"
-                  },
-                  "whiskerEnd": {
-                    "fieldName": "max(super_unleaded)"
-                  },
-                  "axis": {
-                    "hideTitle": true
-                  },
-                  "scale": {
-                    "type": "quantitative",
-                    "reverse": false
-                  },
-                  "format": {
-                    "type": "number-plain",
-                    "abbreviation": "compact",
-                    "decimalPlaces": {
-                      "type": "exact",
-                      "places": 2
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "position": {
-            "x": 3,
-            "y": 24,
-            "width": 3,
-            "height": 9
-          }
-        },
-        {
-          "widget": {
-            "name": "05bf8124",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "c1cc37f0",
-                  "fields": [
-                    {
-                      "name": "min(diesel)",
-                      "expression": "MIN(`diesel`)"
-                    },
-                    {
-                      "name": "q1(diesel)",
-                      "expression": "PERCENTILE(`diesel`, 0.25)"
-                    },
-                    {
-                      "name": "median(diesel)",
-                      "expression": "MEDIAN(`diesel`)"
-                    },
-                    {
-                      "name": "q3(diesel)",
-                      "expression": "PERCENTILE(`diesel`, 0.75)"
-                    },
-                    {
-                      "name": "max(diesel)",
-                      "expression": "MAX(`diesel`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "frame": {
-                "showTitle": true,
-                "title": "Diesel (B7S) Price Distribution"
-              },
-              "widgetType": "box",
-              "encodings": {
-                "y": {
-                  "whiskerStart": {
-                    "fieldName": "min(diesel)"
-                  },
-                  "boxStart": {
-                    "fieldName": "q1(diesel)"
-                  },
-                  "boxMid": {
-                    "fieldName": "median(diesel)"
-                  },
-                  "boxEnd": {
-                    "fieldName": "q3(diesel)"
-                  },
-                  "whiskerEnd": {
-                    "fieldName": "max(diesel)"
-                  },
-                  "axis": {
-                    "hideTitle": true
-                  },
-                  "scale": {
-                    "type": "quantitative",
-                    "reverse": false
-                  },
-                  "format": {
-                    "type": "number-plain",
-                    "abbreviation": "compact",
-                    "decimalPlaces": {
-                      "type": "exact",
-                      "places": 2
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "position": {
-            "x": 6,
-            "y": 24,
-            "width": 3,
-            "height": 9
-          }
-        },
-        {
-          "widget": {
-            "name": "a15f6b9a",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "c1cc37f0",
-                  "fields": [
-                    {
-                      "name": "min(premium_diesel)",
-                      "expression": "MIN(`premium_diesel`)"
-                    },
-                    {
-                      "name": "q1(premium_diesel)",
-                      "expression": "PERCENTILE(`premium_diesel`, 0.25)"
-                    },
-                    {
-                      "name": "median(premium_diesel)",
-                      "expression": "MEDIAN(`premium_diesel`)"
-                    },
-                    {
-                      "name": "q3(premium_diesel)",
-                      "expression": "PERCENTILE(`premium_diesel`, 0.75)"
-                    },
-                    {
-                      "name": "max(premium_diesel)",
-                      "expression": "MAX(`premium_diesel`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "frame": {
-                "showTitle": true,
-                "title": "Super Diesel (B7P) Price Distribution"
-              },
-              "widgetType": "box",
-              "encodings": {
-                "y": {
-                  "whiskerStart": {
-                    "fieldName": "min(premium_diesel)"
-                  },
-                  "boxStart": {
-                    "fieldName": "q1(premium_diesel)"
-                  },
-                  "boxMid": {
-                    "fieldName": "median(premium_diesel)"
-                  },
-                  "boxEnd": {
-                    "fieldName": "q3(premium_diesel)"
-                  },
-                  "whiskerEnd": {
-                    "fieldName": "max(premium_diesel)"
-                  },
-                  "axis": {
-                    "hideTitle": true
-                  },
-                  "scale": {
-                    "type": "quantitative",
-                    "reverse": false
-                  },
-                  "format": {
-                    "type": "number-plain",
-                    "abbreviation": "compact",
-                    "decimalPlaces": {
-                      "type": "exact",
-                      "places": 2
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "position": {
-            "x": 9,
-            "y": 24,
-            "width": 3,
-            "height": 9
-          }
-        },
-        {
-          "widget": {
-            "name": "79eea518",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "c1cc37f0",
-                  "fields": [
-                    {
-                      "name": "forecourt_type",
-                      "expression": "`forecourt_type`"
-                    },
-                    {
-                      "name": "latitude",
-                      "expression": "`latitude`"
-                    },
-                    {
-                      "name": "longitude",
-                      "expression": "`longitude`"
-                    },
-                    {
-                      "name": "avg(unleaded)",
-                      "expression": "AVG(`unleaded`)"
-                    },
-                    {
-                      "name": "super_unleaded",
-                      "expression": "`super_unleaded`"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "frame": {
-                "title": "Super Unleaded Prices by Forecourt Type (Map)",
-                "showTitle": true
-              },
-              "mark": {
-                "size": -0.2
-              },
-              "widgetType": "symbol-map",
-              "encodings": {
-                "coordinates": {
-                  "latitude": {
-                    "fieldName": "latitude",
-                    "displayName": "Latitude"
-                  },
-                  "longitude": {
-                    "fieldName": "longitude",
-                    "displayName": "Longitude"
-                  }
-                },
-                "color": {
-                  "fieldName": "forecourt_type",
-                  "scale": {
-                    "type": "categorical"
-                  }
-                },
-                "size": {
-                  "fieldName": "super_unleaded",
-                  "scale": {
-                    "type": "quantitative"
-                  },
-                  "displayName": "Super Unleaded Price"
-                },
-                "extra": [
-                  {
-                    "fieldName": "forecourt_type",
-                    "displayName": "Forecourt Type"
-                  },
-                  {
-                    "fieldName": "avg(unleaded)",
-                    "displayName": "Unleaded Price"
-                  }
-                ]
-              }
-            }
-          },
-          "position": {
-            "x": 6,
-            "y": 0,
-            "width": 6,
-            "height": 12
-          }
-        },
-        {
-          "widget": {
-            "name": "e208bc3c",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "c1cc37f0",
-                  "fields": [
-                    {
-                      "name": "forecourt_type",
-                      "expression": "`forecourt_type`"
-                    },
-                    {
-                      "name": "latitude",
-                      "expression": "`latitude`"
-                    },
-                    {
-                      "name": "longitude",
-                      "expression": "`longitude`"
-                    },
-                    {
-                      "name": "avg(unleaded)",
-                      "expression": "AVG(`unleaded`)"
-                    },
-                    {
-                      "name": "premium_diesel",
-                      "expression": "`premium_diesel`"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "mark": {
-                "size": -0.1
-              },
-              "frame": {
-                "title": "Premium Diesel Prices by Forecourt Type (Map)",
-                "showTitle": true
-              },
-              "widgetType": "symbol-map",
-              "encodings": {
-                "coordinates": {
-                  "latitude": {
-                    "fieldName": "latitude",
-                    "displayName": "Latitude"
-                  },
-                  "longitude": {
-                    "fieldName": "longitude",
-                    "displayName": "Longitude"
-                  }
-                },
-                "color": {
-                  "fieldName": "forecourt_type",
-                  "scale": {
-                    "type": "categorical"
-                  }
-                },
-                "size": {
-                  "fieldName": "premium_diesel",
-                  "scale": {
-                    "type": "quantitative",
-                    "domain": {
-                      "min": 125
-                    }
-                  },
-                  "displayName": "Premium Diesel Price"
-                },
-                "extra": [
-                  {
-                    "fieldName": "forecourt_type",
-                    "displayName": "Forecourt Type"
-                  },
-                  {
-                    "fieldName": "avg(unleaded)",
-                    "displayName": "Unleaded Price"
-                  }
-                ]
-              }
-            }
-          },
-          "position": {
-            "x": 6,
-            "y": 12,
-            "width": 6,
-            "height": 12
-          }
-        },
-        {
-          "widget": {
-            "name": "e3a85f42",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "c1cc37f0",
-                  "fields": [
-                    {
-                      "name": "forecourt_type",
-                      "expression": "`forecourt_type`"
-                    },
-                    {
-                      "name": "latitude",
-                      "expression": "`latitude`"
-                    },
-                    {
-                      "name": "longitude",
-                      "expression": "`longitude`"
-                    },
-                    {
-                      "name": "avg(unleaded)",
-                      "expression": "AVG(`unleaded`)"
-                    },
-                    {
-                      "name": "diesel",
-                      "expression": "`diesel`"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "mark": {
-                "size": -0.1
-              },
-              "frame": {
-                "title": "Diesel Prices by Forecourt Type (Map)",
-                "showTitle": true
-              },
-              "widgetType": "symbol-map",
-              "encodings": {
-                "coordinates": {
-                  "latitude": {
-                    "fieldName": "latitude",
-                    "displayName": "Latitude"
-                  },
-                  "longitude": {
-                    "fieldName": "longitude",
-                    "displayName": "Longitude"
-                  }
-                },
-                "color": {
-                  "fieldName": "forecourt_type",
-                  "scale": {
-                    "type": "categorical"
-                  }
-                },
-                "size": {
-                  "fieldName": "diesel",
-                  "scale": {
-                    "type": "quantitative",
-                    "domain": {
-                      "min": 125
-                    }
-                  },
-                  "displayName": "Diesel Price"
-                },
-                "extra": [
-                  {
-                    "fieldName": "forecourt_type",
-                    "displayName": "Forecourt Type"
-                  },
-                  {
-                    "fieldName": "avg(unleaded)",
-                    "displayName": "Unleaded Price"
-                  }
-                ]
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 12,
-            "width": 6,
-            "height": 12
           }
         },
         {
@@ -1214,17 +608,9 @@
                     {
                       "name": "longitude",
                       "expression": "`longitude`"
-                    },
-                    {
-                      "name": "avg(unleaded)",
-                      "expression": "AVG(`unleaded`)"
-                    },
-                    {
-                      "name": "unleaded",
-                      "expression": "`unleaded`"
                     }
                   ],
-                  "disaggregated": false
+                  "disaggregated": true
                 }
               }
             ],
@@ -1271,21 +657,56 @@
                     ]
                   }
                 },
-                "size": {
-                  "fieldName": "unleaded",
-                  "scale": {
-                    "type": "quantitative"
-                  },
-                  "displayName": "Super Unleaded Price"
-                },
                 "extra": [
                   {
                     "fieldName": "forecourt_type",
                     "displayName": "Forecourt Type"
-                  },
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 8,
+            "height": 12
+          }
+        },
+        {
+          "widget": {
+            "name": "fuel-types",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10993f8ea16708ac4ddfc4e3d4271_fuel_type_description",
+                "query": {
+                  "datasetName": "c1cc37f0",
+                  "fields": [
+                    {
+                      "name": "fuel_type_description",
+                      "expression": "`fuel_type_description`"
+                    },
+                    {
+                      "name": "fuel_type_description_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Fuel Types"
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
                   {
-                    "fieldName": "avg(unleaded)",
-                    "displayName": "Unleaded Price"
+                    "fieldName": "fuel_type_description",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10993f8ea16708ac4ddfc4e3d4271_fuel_type_description"
                   }
                 ]
               }
@@ -1294,8 +715,1068 @@
           "position": {
             "x": 0,
             "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "outward-postcode",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10993f8ea16708ac4ddfc4e3d4271_outward_postcode",
+                "query": {
+                  "datasetName": "c1cc37f0",
+                  "fields": [
+                    {
+                      "name": "outward_postcode",
+                      "expression": "`outward_postcode`"
+                    },
+                    {
+                      "name": "outward_postcode_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Outward Postcode"
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "outward_postcode",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10993f8ea16708ac4ddfc4e3d4271_outward_postcode"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 0,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "fa97e619",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10993f8ea16708ac4ddfc4e3d4271_geographic_postcode",
+                "query": {
+                  "datasetName": "c1cc37f0",
+                  "fields": [
+                    {
+                      "name": "geographic_postcode",
+                      "expression": "`geographic_postcode`"
+                    },
+                    {
+                      "name": "geographic_postcode_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Geographic Postcode"
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "geographic_postcode",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10993f8ea16708ac4ddfc4e3d4271_geographic_postcode"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 3,
+            "height": 1
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "7dda5869",
+      "displayName": "Distance Calculation",
+      "layout": [
+        {
+          "widget": {
+            "name": "13e86f4e",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"font-size:24px\">Filters</span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "fuel-type",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_fuel_type_description",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "fuel_type_description",
+                      "expression": "`fuel_type_description`"
+                    },
+                    {
+                      "name": "fuel_type_description_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Fuel Type"
+              },
+              "disallowAll": true,
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "Unleaded"
+                      }
+                    ]
+                  }
+                }
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "fuel_type_description",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_fuel_type_description"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 1,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "starting-postcode",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b5e278d1539bebf533deab1894e_postcode",
+                "query": {
+                  "datasetName": "cb49dfd8",
+                  "fields": [
+                    {
+                      "name": "postcode",
+                      "expression": "`postcode`"
+                    },
+                    {
+                      "name": "postcode_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_start_postcode",
+                "query": {
+                  "datasetName": "be70826a",
+                  "parameters": [
+                    {
+                      "name": "start_postcode",
+                      "keyword": "start_postcode"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Starting Postcode"
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "parameterName": "start_postcode",
+                    "queryName": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_start_postcode"
+                  },
+                  {
+                    "fieldName": "postcode",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b5e278d1539bebf533deab1894e_postcode"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "c0789f98",
+            "queries": [
+              {
+                "name": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_mpg",
+                "query": {
+                  "datasetName": "be70826a",
+                  "parameters": [
+                    {
+                      "name": "mpg",
+                      "keyword": "mpg"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "disallowAll": true,
+              "frame": {
+                "showTitle": true,
+                "title": "MPG"
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "parameterName": "mpg",
+                    "queryName": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_mpg"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "c14c558e",
+            "queries": [
+              {
+                "name": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_distance_limit",
+                "query": {
+                  "datasetName": "be70826a",
+                  "parameters": [
+                    {
+                      "name": "distance_limit",
+                      "keyword": "distance_limit"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "disallowAll": true,
+              "frame": {
+                "showTitle": true,
+                "title": "Max Distance (km)"
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "parameterName": "distance_limit",
+                    "queryName": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_distance_limit"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "e8572d89",
+            "queries": [
+              {
+                "name": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_amount_to_fill",
+                "query": {
+                  "datasetName": "be70826a",
+                  "parameters": [
+                    {
+                      "name": "amount_to_fill",
+                      "keyword": "amount_to_fill"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "disallowAll": true,
+              "frame": {
+                "showTitle": true,
+                "title": "Amount to fill (L)"
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "parameterName": "amount_to_fill",
+                    "queryName": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_amount_to_fill"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 10,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "range-full-cost-fill-selected-criteria",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "min(total_cost_pounds)",
+                      "expression": "MIN(`total_cost_pounds`)"
+                    },
+                    {
+                      "name": "q1(total_cost_pounds)",
+                      "expression": "PERCENTILE(`total_cost_pounds`, 0.25)"
+                    },
+                    {
+                      "name": "median(total_cost_pounds)",
+                      "expression": "MEDIAN(`total_cost_pounds`)"
+                    },
+                    {
+                      "name": "q3(total_cost_pounds)",
+                      "expression": "PERCENTILE(`total_cost_pounds`, 0.75)"
+                    },
+                    {
+                      "name": "max(total_cost_pounds)",
+                      "expression": "MAX(`total_cost_pounds`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Range of Full Cost to fill under selected criteria",
+                "description": "This includes filling up and driving to the forecourt"
+              },
+              "widgetType": "box",
+              "encodings": {
+                "y": {
+                  "whiskerStart": {
+                    "fieldName": "min(total_cost_pounds)"
+                  },
+                  "boxStart": {
+                    "fieldName": "q1(total_cost_pounds)"
+                  },
+                  "boxMid": {
+                    "fieldName": "median(total_cost_pounds)"
+                  },
+                  "boxEnd": {
+                    "fieldName": "q3(total_cost_pounds)"
+                  },
+                  "whiskerEnd": {
+                    "fieldName": "max(total_cost_pounds)"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
             "width": 6,
-            "height": 12
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "d87a88d9",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "name",
+                      "expression": "`name`"
+                    },
+                    {
+                      "name": "postcode",
+                      "expression": "`postcode`"
+                    },
+                    {
+                      "name": "price_per_litre_pounds",
+                      "expression": "`price_per_litre_pounds`"
+                    },
+                    {
+                      "name": "distance",
+                      "expression": "`distance`"
+                    },
+                    {
+                      "name": "cost_of_driving_pounds",
+                      "expression": "`cost_of_driving_pounds`"
+                    },
+                    {
+                      "name": "fill_cost_pounds",
+                      "expression": "`fill_cost_pounds`"
+                    },
+                    {
+                      "name": "total_cost_pounds",
+                      "expression": "`total_cost_pounds`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "name",
+                    "displayName": "Forecourt"
+                  },
+                  {
+                    "fieldName": "postcode",
+                    "displayName": "Postcode"
+                  },
+                  {
+                    "fieldName": "price_per_litre_pounds",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "GBP",
+                      "abbreviation": "none",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 3
+                      },
+                      "hideGroupSeparator": true
+                    },
+                    "displayName": "Price Per Litre"
+                  },
+                  {
+                    "fieldName": "distance",
+                    "displayName": "Distance to Forecourt (km)"
+                  },
+                  {
+                    "fieldName": "cost_of_driving_pounds",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "GBP",
+                      "abbreviation": "none",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 2
+                      },
+                      "hideGroupSeparator": true
+                    },
+                    "displayName": "Cost of Fuel Used"
+                  },
+                  {
+                    "fieldName": "fill_cost_pounds",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "GBP",
+                      "abbreviation": "none",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 2
+                      },
+                      "hideGroupSeparator": true
+                    },
+                    "displayName": "Fill Cost"
+                  },
+                  {
+                    "fieldName": "total_cost_pounds",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "GBP",
+                      "abbreviation": "none",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 2
+                      },
+                      "hideGroupSeparator": true
+                    },
+                    "displayName": "Total Cost"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 18,
+            "width": 12,
+            "height": 9
+          }
+        },
+        {
+          "widget": {
+            "name": "forecourt-locations",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "latitude",
+                      "expression": "`latitude`"
+                    },
+                    {
+                      "name": "longitude",
+                      "expression": "`longitude`"
+                    },
+                    {
+                      "name": "name",
+                      "expression": "`name`"
+                    },
+                    {
+                      "name": "postcode",
+                      "expression": "`postcode`"
+                    },
+                    {
+                      "name": "price_per_litre_pounds",
+                      "expression": "`price_per_litre_pounds`"
+                    },
+                    {
+                      "name": "fill_cost_pounds",
+                      "expression": "`fill_cost_pounds`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Forecourt locations"
+              },
+              "widgetType": "symbol-map",
+              "encodings": {
+                "coordinates": {
+                  "latitude": {
+                    "fieldName": "latitude"
+                  },
+                  "longitude": {
+                    "fieldName": "longitude"
+                  }
+                },
+                "size": {
+                  "fieldName": "fill_cost_pounds",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "extra": [
+                  {
+                    "fieldName": "name"
+                  },
+                  {
+                    "fieldName": "postcode"
+                  },
+                  {
+                    "fieldName": "price_per_litre_pounds"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 11,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "cheapest-fill-cost-driving",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "cheapest_cost_pounds",
+                      "expression": "`cheapest_cost_pounds`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Total cost"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "cheapest_cost_pounds",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "GBP",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 6,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "excluded-forecourts",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b611ca01aa9965268fc5b70e393_name",
+                "query": {
+                  "datasetName": "e6c87f31",
+                  "fields": [
+                    {
+                      "name": "name",
+                      "expression": "`name`"
+                    },
+                    {
+                      "name": "name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_forecourts",
+                "query": {
+                  "datasetName": "be70826a",
+                  "parameters": [
+                    {
+                      "name": "forecourts",
+                      "keyword": "forecourts"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Excluded Forecourts"
+              },
+              "selection": {
+                "defaultSelection": {
+                  "operator": {
+                    "operator": "OR",
+                    "args": []
+                  }
+                }
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "parameterName": "forecourts",
+                    "queryName": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_forecourts"
+                  },
+                  {
+                    "fieldName": "name",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b611ca01aa9965268fc5b70e393_name"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "602ea010",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "cheapest_distance",
+                      "expression": "`cheapest_distance`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Straight Line Distance (km)"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "cheapest_distance"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 10,
+            "y": 6,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "8f8470d0",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"font-size: 24px;\">**Cheapest Fuel (accounting for cost of travel)**</span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "6e6490f0",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"font-size:36px;line-height:1.5\">**Statistics**</span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "772cca2a",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "cheapest_name",
+                      "expression": "`cheapest_name`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": false,
+                "title": ""
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "cheapest_name"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "1a50e748",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "fill_cost_pounds",
+                      "expression": "`fill_cost_pounds`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Pump Cost"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "fill_cost_pounds",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "GBP",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 6,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "e9459348",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "price_per_litre_pounds",
+                      "expression": "`price_per_litre_pounds`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Price Per Litre"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "price_per_litre_pounds",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "GBP",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 3
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 6,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "adab6e47",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "cheapest_postcode",
+                      "expression": "`cheapest_postcode`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Postcode"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "cheapest_postcode"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "8cae33f1",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "cost_of_driving_pounds",
+                      "expression": "`cost_of_driving_pounds`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Minimum Driving Cost"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "cost_of_driving_pounds",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "GBP",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 6,
+            "width": 2,
+            "height": 3
           }
         }
       ],
