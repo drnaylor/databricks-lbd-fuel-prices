@@ -2,7 +2,7 @@
 
 CREATE MATERIALIZED VIEW gold.petrol_prices.postcodes AS
 WITH latest_postcodes AS (
-    SELECT MAX_BY(entry_id, ingestion_time) as entry_id
+    SELECT MAX_BY(postcode, ingestion_time) as postcode
     FROM silver.petrol_prices.postcodes
     GROUP BY postcode
 )
@@ -13,7 +13,7 @@ SELECT DISTINCT
     latitude,
     longitude
 FROM silver.petrol_prices.postcodes
-LEFT SEMI JOIN latest_postcodes l USING (entry_id);
+LEFT SEMI JOIN latest_postcodes l USING (postcode);
 
 -- FUEL TYPES
 
@@ -24,9 +24,9 @@ SELECT DISTINCT * FROM silver.petrol_prices.fuel_types;
 
 CREATE MATERIALIZED VIEW gold.petrol_prices.latest_prices AS
 WITH latest_entries AS (
-    SELECT MAX(entry_timestamp) as entry_timestamp, forecourt_id
+    SELECT MAX(entry_timestamp) as entry_timestamp, name, postcode
     FROM silver.petrol_prices.prices
-    GROUP BY forecourt_id
+    GROUP BY name, postcode
 ), normalised AS (
     SELECT
         name,
@@ -45,7 +45,7 @@ WITH latest_entries AS (
         `B10`,
         `HV0`
     FROM silver.petrol_prices.prices
-    LEFT SEMI JOIN latest_entries l USING (entry_timestamp, forecourt_id)
+    LEFT SEMI JOIN latest_entries l USING (entry_timestamp, name, postcode)
     WHERE temporary_closure = FALSE AND permanent_closure = FALSE
 )
 SELECT * 
@@ -66,9 +66,9 @@ LEFT SEMI JOIN gold.petrol_prices.fuel_types f USING (fuel_type_code);
 
 CREATE MATERIALIZED VIEW gold.petrol_prices.uncleaned_latest_prices AS
 WITH latest_entries AS (
-    SELECT MAX(entry_timestamp) as entry_timestamp, forecourt_id
+    SELECT MAX(entry_timestamp) as entry_timestamp, name, postcode
     FROM silver.petrol_prices.uncleaned_prices
-    GROUP BY forecourt_id
+    GROUP BY name, postcode
 ), normalised AS (
     SELECT
         name,
@@ -86,7 +86,7 @@ WITH latest_entries AS (
         `B10`,
         `HV0`
     FROM silver.petrol_prices.uncleaned_prices
-    LEFT SEMI JOIN latest_entries l USING (entry_timestamp, forecourt_id)
+    LEFT SEMI JOIN latest_entries l USING (entry_timestamp, name, postcode)
     WHERE temporary_closure = FALSE AND permanent_closure = FALSE
 )
 SELECT * 

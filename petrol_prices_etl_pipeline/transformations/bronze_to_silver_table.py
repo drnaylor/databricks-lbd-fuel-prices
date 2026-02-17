@@ -4,12 +4,20 @@ from pyspark.sql import Column
 from pyspark.sql import functions as F, Window
 from pyspark.sql.types import BooleanType, DoubleType, IntegerType, StringType, StructType, StructField, DecimalType
 
-def silver_table(clean_price):
+from datetime import datetime
+
+def silver_table(clean_price, target_table):
     lag_window = Window.partitionBy("forecourt_id").orderBy(F.desc_nulls_first("entry_timestamp"))
+
+    try:
+        max_timestamp = spark.read.table(target_table).select(F.max("entry_timestamp")).head.entry_timestamp
+    except:
+        max_timestamp = datetime(2025, 1, 1)
 
     # We need to clean the data
     return (
         spark.read.table("bronze.petrol_prices.prices_raw")
+            .where(F.col("entry_timestamp") > max_timestamp)
             .select(
                 F.col("entry_timestamp"),
                 F.lag("entry_timestamp").over(lag_window).alias("entry_close_timestamp"),
@@ -56,8 +64,9 @@ def silver_table(clean_price):
                    """)
 @dp.expect_or_drop("no_qa_entries", """
                    name NOT IN ('TESTQA', 'Test AS') AND
-                   LOWER(trading_name) NOT LIKE '%PreProd%' AND
-                   LOWER(trading_name) NOT LIKE '%-new'
+                   LOWER(trading_name) NOT LIKE '%preprod%' AND
+                   LOWER(trading_name) NOT LIKE '%-new' AND
+                   LOWER(brand_name) NOT LIKE '%pre-prod%'
                    """)
 @dp.expect_or_fail("no_outrageous_fuel_prices", """
                    (`E5` IS NULL OR `E5` BETWEEN 50.00 AND 500.00) AND
@@ -79,7 +88,7 @@ def prices_cleaned():
                .alias(col_name)
         )
     
-    return silver_table(clean_price)
+    return silver_table(clean_price, "silver.petrol_prices.prices")
 
 
 @dp.table(
@@ -87,7 +96,7 @@ def prices_cleaned():
   comment="Not clean data from the Petrol Prices API."
 )
 def prices_uncleaned():    
-    return silver_table(lambda s: F.col(s))
+    return silver_table(lambda s: F.col(s), "silver.petrol_prices.uncleaned_prices")
 
 
 @dp.table(
@@ -98,7 +107,6 @@ def postcode():
     return (
         spark.read.table("bronze.petrol_prices.postcodes")
             .select(
-                F.monotonically_increasing_id().alias("entry_id"),
                 "ingestion_time",
                 "postcode",
                 "longitude",

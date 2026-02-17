@@ -37,7 +37,7 @@
         "  INNER JOIN postcodes p USING (postcode)\n",
         "  INNER JOIN fuel_types f USING (fuel_type_code)\n",
         "  LEFT OUTER JOIN postcodes sp ON sp.postcode = :start_postcode\n",
-        "  WHERE NOT array_contains(:forecourts, name) OR :forecourts IS NULL\n",
+        "  WHERE NOT array_contains(:forecourts, brand_name) OR :forecourts IS NULL\n",
         "),\n",
         "mpg_calc AS (\n",
         "  SELECT \n",
@@ -69,7 +69,8 @@
         "  MIN(total_cost) OVER(PARTITION BY 1) / 100 AS cheapest_cost_pounds,\n",
         "  MIN_BY(distance, total_cost) OVER(PARTITION BY 1) AS cheapest_distance,\n",
         "  MIN_BY(postcode, total_cost) OVER(PARTITION BY 1) AS cheapest_postcode,\n",
-        "  MIN_BY(name, total_cost) OVER(PARTITION BY 1) AS cheapest_name\n",
+        "  MIN_BY(name, total_cost) OVER(PARTITION BY 1) AS cheapest_name,\n",
+        "  MIN_BY(brand_name, total_cost) OVER(PARTITION BY 1) AS cheapest_brand_name\n",
         "FROM driving_calc dc\n",
         "WHERE dc.distance IS NULL OR dc.distance <= :distance_limit\n",
         "ORDER BY total_cost_pence ASC NULLS LAST"
@@ -141,13 +142,8 @@
           "dataType": "STRING",
           "complexType": "MULTI",
           "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "COSTCO WHOLESALE UK LIMITED"
-                }
-              ]
+            "operator": {
+              "operator": "AND"
             }
           }
         }
@@ -170,7 +166,7 @@
       "name": "e6c87f31",
       "displayName": "Forecourt Names",
       "queryLines": [
-        "SELECT DISTINCT name FROM latest_prices"
+        "SELECT DISTINCT brand_name FROM latest_prices"
       ],
       "catalog": "gold",
       "schema": "petrol_prices"
@@ -1096,24 +1092,24 @@
                   "datasetName": "be70826a",
                   "fields": [
                     {
-                      "name": "min(total_cost_pounds)",
-                      "expression": "MIN(`total_cost_pounds`)"
+                      "name": "min(price_per_litre_pence)",
+                      "expression": "MIN(`price_per_litre_pence`)"
                     },
                     {
-                      "name": "q1(total_cost_pounds)",
-                      "expression": "PERCENTILE(`total_cost_pounds`, 0.25)"
+                      "name": "q1(price_per_litre_pence)",
+                      "expression": "PERCENTILE(`price_per_litre_pence`, 0.25)"
                     },
                     {
-                      "name": "median(total_cost_pounds)",
-                      "expression": "MEDIAN(`total_cost_pounds`)"
+                      "name": "median(price_per_litre_pence)",
+                      "expression": "MEDIAN(`price_per_litre_pence`)"
                     },
                     {
-                      "name": "q3(total_cost_pounds)",
-                      "expression": "PERCENTILE(`total_cost_pounds`, 0.75)"
+                      "name": "q3(price_per_litre_pence)",
+                      "expression": "PERCENTILE(`price_per_litre_pence`, 0.75)"
                     },
                     {
-                      "name": "max(total_cost_pounds)",
-                      "expression": "MAX(`total_cost_pounds`)"
+                      "name": "max(price_per_litre_pence)",
+                      "expression": "MAX(`price_per_litre_pence`)"
                     }
                   ],
                   "disaggregated": false
@@ -1125,26 +1121,26 @@
               "frame": {
                 "showTitle": true,
                 "showDescription": true,
-                "title": "Range of Full Cost to fill under selected criteria",
-                "description": "This includes filling up and driving to the forecourt"
+                "title": "Pump Price per litre (pence per litre)",
+                "description": ""
               },
               "widgetType": "box",
               "encodings": {
                 "y": {
                   "whiskerStart": {
-                    "fieldName": "min(total_cost_pounds)"
+                    "fieldName": "min(price_per_litre_pence)"
                   },
                   "boxStart": {
-                    "fieldName": "q1(total_cost_pounds)"
+                    "fieldName": "q1(price_per_litre_pence)"
                   },
                   "boxMid": {
-                    "fieldName": "median(total_cost_pounds)"
+                    "fieldName": "median(price_per_litre_pence)"
                   },
                   "boxEnd": {
-                    "fieldName": "q3(total_cost_pounds)"
+                    "fieldName": "q3(price_per_litre_pence)"
                   },
                   "whiskerEnd": {
-                    "fieldName": "max(total_cost_pounds)"
+                    "fieldName": "max(price_per_litre_pence)"
                   },
                   "scale": {
                     "type": "quantitative"
@@ -1154,8 +1150,8 @@
             }
           },
           "position": {
-            "x": 0,
-            "y": 11,
+            "x": 6,
+            "y": 18,
             "width": 6,
             "height": 7
           }
@@ -1170,8 +1166,8 @@
                   "datasetName": "be70826a",
                   "fields": [
                     {
-                      "name": "name",
-                      "expression": "`name`"
+                      "name": "brand_name",
+                      "expression": "`brand_name`"
                     },
                     {
                       "name": "postcode",
@@ -1208,8 +1204,8 @@
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "name",
-                    "displayName": "Forecourt"
+                    "fieldName": "brand_name",
+                    "displayName": "Forecourt Brand name"
                   },
                   {
                     "fieldName": "postcode",
@@ -1281,7 +1277,7 @@
           },
           "position": {
             "x": 0,
-            "y": 18,
+            "y": 25,
             "width": 12,
             "height": 9
           }
@@ -1304,8 +1300,8 @@
                       "expression": "`longitude`"
                     },
                     {
-                      "name": "name",
-                      "expression": "`name`"
+                      "name": "brand_name",
+                      "expression": "`brand_name`"
                     },
                     {
                       "name": "postcode",
@@ -1344,26 +1340,39 @@
                   "fieldName": "fill_cost_pounds",
                   "scale": {
                     "type": "quantitative"
-                  }
+                  },
+                  "displayName": "Cost to Fill"
                 },
                 "extra": [
                   {
-                    "fieldName": "name"
+                    "fieldName": "brand_name",
+                    "displayName": "Forecourt Brand Name"
                   },
                   {
-                    "fieldName": "postcode"
+                    "fieldName": "postcode",
+                    "displayName": "Postcode"
                   },
                   {
-                    "fieldName": "price_per_litre_pounds"
+                    "fieldName": "price_per_litre_pounds",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "GBP",
+                      "abbreviation": "compact",
+                      "decimalPlaces": {
+                        "type": "max",
+                        "places": 2
+                      }
+                    },
+                    "displayName": "Price Per Litre"
                   }
                 ]
               }
             }
           },
           "position": {
-            "x": 6,
+            "x": 0,
             "y": 11,
-            "width": 6,
+            "width": 12,
             "height": 7
           }
         },
@@ -1420,16 +1429,16 @@
             "name": "excluded-forecourts",
             "queries": [
               {
-                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b611ca01aa9965268fc5b70e393_name",
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b611ca01aa9965268fc5b70e393_brand_name",
                 "query": {
                   "datasetName": "e6c87f31",
                   "fields": [
                     {
-                      "name": "name",
-                      "expression": "`name`"
+                      "name": "brand_name",
+                      "expression": "`brand_name`"
                     },
                     {
-                      "name": "name_associativity",
+                      "name": "brand_name_associativity",
                       "expression": "COUNT_IF(`associative_filter_predicate_group`)"
                     }
                   ],
@@ -1472,8 +1481,8 @@
                     "queryName": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_forecourts"
                   },
                   {
-                    "fieldName": "name",
-                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b611ca01aa9965268fc5b70e393_name"
+                    "fieldName": "brand_name",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b611ca01aa9965268fc5b70e393_brand_name"
                   }
                 ]
               }
@@ -1567,8 +1576,8 @@
                   "datasetName": "be70826a",
                   "fields": [
                     {
-                      "name": "cheapest_name",
-                      "expression": "`cheapest_name`"
+                      "name": "cheapest_brand_name",
+                      "expression": "`cheapest_brand_name`"
                     }
                   ],
                   "disaggregated": true
@@ -1584,7 +1593,7 @@
               "widgetType": "counter",
               "encodings": {
                 "value": {
-                  "fieldName": "cheapest_name"
+                  "fieldName": "cheapest_brand_name"
                 }
               }
             }
@@ -1777,6 +1786,80 @@
             "y": 6,
             "width": 2,
             "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "729e3d55",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "min(total_cost_pounds)",
+                      "expression": "MIN(`total_cost_pounds`)"
+                    },
+                    {
+                      "name": "q1(total_cost_pounds)",
+                      "expression": "PERCENTILE(`total_cost_pounds`, 0.25)"
+                    },
+                    {
+                      "name": "median(total_cost_pounds)",
+                      "expression": "MEDIAN(`total_cost_pounds`)"
+                    },
+                    {
+                      "name": "q3(total_cost_pounds)",
+                      "expression": "PERCENTILE(`total_cost_pounds`, 0.75)"
+                    },
+                    {
+                      "name": "max(total_cost_pounds)",
+                      "expression": "MAX(`total_cost_pounds`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Full Cost to fill under selected criteria",
+                "description": "This includes filling up and driving to the forecourt"
+              },
+              "widgetType": "box",
+              "encodings": {
+                "y": {
+                  "whiskerStart": {
+                    "fieldName": "min(total_cost_pounds)"
+                  },
+                  "boxStart": {
+                    "fieldName": "q1(total_cost_pounds)"
+                  },
+                  "boxMid": {
+                    "fieldName": "median(total_cost_pounds)"
+                  },
+                  "boxEnd": {
+                    "fieldName": "q3(total_cost_pounds)"
+                  },
+                  "whiskerEnd": {
+                    "fieldName": "max(total_cost_pounds)"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 18,
+            "width": 6,
+            "height": 7
           }
         }
       ],

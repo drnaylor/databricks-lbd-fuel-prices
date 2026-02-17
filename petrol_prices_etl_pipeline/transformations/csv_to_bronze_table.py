@@ -83,7 +83,7 @@ def prices_raw():
         F.col("`forecourts.fuel_price.B7S`").alias("B7S"),
         F.col("`forecourts.fuel_price.B10`").alias("B10"),
         F.col("`forecourts.fuel_price.HV0`").alias("HV0")
-    ))
+    )).distinct()
 
 
 postcode_file_path = f"/Volumes/bronze/petrol_prices/csv/postcode"
@@ -110,7 +110,6 @@ def postcodes_raw():
     .load(postcode_file_path)
     .select(
         F.current_timestamp().alias("ingestion_time"),
-        F.col("id"),
         F.col("postcode"),
         F.col("latitude"),
         F.col("longitude")
@@ -139,3 +138,4 @@ def fuel_types_raw():
         F.col("fuel_type_code"),
         F.col("fuel_type_description")
     ))
+  
