@@ -13,7 +13,7 @@ In that volume, there should be three directories:
 |fuel_type_code|fuel_type_description|
 |--------------|---------------------|
 |E5|Super Unleaded|
-|E10,Unleaded
+|E10|Unleaded|
 |B7S|Diesel|
 |B7P|Premium Diesel|
 |B10|Biodiesel|
