@@ -112,35 +112,38 @@ def prices():
         )
 
     return (
-        spark.readStream.table("silver.petrol_prices.cdc_data").select(
-            F.col("forecourt_id"),
-            F.col("postcode"),
-            combine_fuel_cols("E5"),
-            combine_fuel_cols("E10"),
-            combine_fuel_cols("B7S"),
-            combine_fuel_cols("B7P"),
-            combine_fuel_cols("B10"),
-            combine_fuel_cols("HVO")
-        ).unpivot(
-            ids=["forecourt_id", "postcode"],
-            values=[
-                "E5",
-                "E10",
-                "B7S",
-                "B7P",
-                "B10",
-                "HVO"
-            ],
-            variableColumnName="fuel_type_code",
-            valueColumnName="price_and_timestamp"
-        ).select(
-            F.col("forecourt_id"),
-            F.col("postcode"),
-            F.col("fuel_type_code"),
-            F.col("price_and_timestamp.original_price").alias("original_price"),
-            F.col("price_and_timestamp.price").alias("price"),
-            F.col("price_and_timestamp.price_timestamp").alias("price_timestamp")
-        )
+        spark.readStream
+            .option("skipChangeCommits", "true")
+            .table("silver.petrol_prices.cdc_data")
+            .select(
+                F.col("forecourt_id"),
+                F.col("postcode"),
+                combine_fuel_cols("E5"),
+                combine_fuel_cols("E10"),
+                combine_fuel_cols("B7S"),
+                combine_fuel_cols("B7P"),
+                combine_fuel_cols("B10"),
+                combine_fuel_cols("HVO")
+            ).unpivot(
+                ids=["forecourt_id", "postcode"],
+                values=[
+                    "E5",
+                    "E10",
+                    "B7S",
+                    "B7P",
+                    "B10",
+                    "HVO"
+                ],
+                variableColumnName="fuel_type_code",
+                valueColumnName="price_and_timestamp"
+            ).select(
+                F.col("forecourt_id"),
+                F.col("postcode"),
+                F.col("fuel_type_code"),
+                F.col("price_and_timestamp.original_price").alias("original_price"),
+                F.col("price_and_timestamp.price").alias("price"),
+                F.col("price_and_timestamp.price_timestamp").alias("price_timestamp")
+            )
     )
 
 @dp.table(

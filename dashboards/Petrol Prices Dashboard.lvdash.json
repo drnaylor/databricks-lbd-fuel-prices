@@ -494,27 +494,7 @@
                 "color": {
                   "fieldName": "forecourt_type",
                   "scale": {
-                    "type": "categorical",
-                    "mappings": [
-                      {
-                        "value": "Other",
-                        "color": {
-                          "themeColorType": "visualizationColors",
-                          "position": 1
-                        }
-                      },
-                      {
-                        "value": "Motorway",
-                        "color": {
-                          "themeColorType": "visualizationColors",
-                          "position": 2
-                        }
-                      },
-                      {
-                        "value": null,
-                        "color": "#4FEB23"
-                      }
-                    ]
+                    "type": "categorical"
                   }
                 },
                 "extra": [
@@ -1224,7 +1204,7 @@
                       "abbreviation": "compact",
                       "decimalPlaces": {
                         "type": "max",
-                        "places": 2
+                        "places": 3
                       }
                     },
                     "displayName": "Price Per Litre"
