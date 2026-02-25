@@ -6,10 +6,17 @@ from pyspark.sql.types import BooleanType, DoubleType, IntegerType, StringType, 
 # Define the path to the source data
 prices_file_path = f"/Volumes/bronze/petrol_prices/csv/prices"
 
+def create_price_cols(type: str):
+    return [
+      StructField(f"forecourts.fuel_price.{type}", DecimalType(10,4), True),
+      StructField(f"forecourts.price_change_effective.{type}", StringType(), True),
+      StructField(f"forecourts.price_submission_timestamp.{type}", StringType(), True)
+    ]
+
 # Define the CSV definition that we want to pull into a bronze layer
 prices_schema = StructType(
   [
-    StructField("latest_update_timestamp", StringType(), True),
+    StructField("forecourt_update_timestamp", StringType(), True),
     StructField("mft.name", StringType(), True),
     StructField("forecourts.node_id", StringType(), True),
     StructField("forecourts.trading_name", StringType(), True),
@@ -28,13 +35,15 @@ prices_schema = StructType(
     StructField("forecourts.location.country", StringType(), True),
     StructField("forecourts.location.latitude", DecimalType(15,10), True),
     StructField("forecourts.location.longitude", DecimalType(15,10), True),
-    StructField("forecourts.fuel_price.E5", DecimalType(10,4), True),
-    StructField("forecourts.fuel_price.E10", DecimalType(10,4), True),
-    StructField("forecourts.fuel_price.B7P", DecimalType(10,4), True),
-    StructField("forecourts.fuel_price.B7S", DecimalType(10,4), True),
-    StructField("forecourts.fuel_price.B10", DecimalType(10,4), True),
-    StructField("forecourts.fuel_price.HV0", DecimalType(10,4), True)
-  ]
+  ] 
+  # Order is important here...
+  + create_price_cols("E5") 
+  + create_price_cols("E10") 
+  + create_price_cols("B7S")
+  + create_price_cols("B7P")
+  + create_price_cols("B10")
+  + create_price_cols("HVO")
+  # later columns are not important for us so we don't define them.
 )
 
 @dp.table(
@@ -49,6 +58,11 @@ def prices_raw():
         .otherwise(None)
     )
 
+  def convert_to_timestamp(col) -> F.Column:
+    return F.to_timestamp(
+        F.regexp_extract(col, r"^[A-Za-z]{3} ([A-Za-z]{3} \d{2} \d{4} \d{2}:\d{2}:\d{2} GMT\+\d{4}).*$", 1), "MMM dd yyyy HH:mm:ss 'GMT'Z"
+    )
+
   return (spark.readStream
     .format("cloudFiles")
     .schema(prices_schema)
@@ -56,11 +70,8 @@ def prices_raw():
     .option("cloudFiles.format", "csv")
     .load(prices_file_path)
     .select(
-        F.col("latest_update_timestamp").alias("last_update_string"),
-        F.to_timestamp(
-          F.regexp_extract("latest_update_timestamp", r"^[A-Za-z]{3} ([A-Za-z]{3} \d{2} \d{4} \d{2}:\d{2}:\d{2} GMT\+\d{4}).*$", 1), "MMM dd yyyy HH:mm:ss 'GMT'Z"
-        ).alias("entry_timestamp"),
-        F.col("`mft.name`").alias("name"),
+        F.col("forecourt_update_timestamp").alias("last_update_string"),
+        convert_to_timestamp("forecourt_update_timestamp").alias("entry_timestamp"),
         F.col("`forecourts.node_id`").alias("forecourt_id"),
         F.col("`forecourts.trading_name`").alias("trading_name"),
         F.col("`forecourts.brand_name`").alias("brand_name"),
@@ -78,11 +89,17 @@ def prices_raw():
         F.col("`forecourts.location.latitude`").alias("latitude"),
         F.col("`forecourts.location.longitude`").alias("longitude"),
         F.col("`forecourts.fuel_price.E5`").alias("E5"),
+        convert_to_timestamp("`forecourts.price_change_effective.E5`").alias("E5_timestamp"),
         F.col("`forecourts.fuel_price.E10`").alias("E10"),
+        convert_to_timestamp("`forecourts.price_change_effective.E10`").alias("E10_timestamp"),
         F.col("`forecourts.fuel_price.B7P`").alias("B7P"),
+        convert_to_timestamp("`forecourts.price_change_effective.B7P`").alias("B7P_timestamp"),
         F.col("`forecourts.fuel_price.B7S`").alias("B7S"),
+        convert_to_timestamp("`forecourts.price_change_effective.B7S`").alias("B7S_timestamp"),
         F.col("`forecourts.fuel_price.B10`").alias("B10"),
-        F.col("`forecourts.fuel_price.HV0`").alias("HV0")
+        convert_to_timestamp("`forecourts.price_change_effective.B10`").alias("B10_timestamp"),
+        F.col("`forecourts.fuel_price.HVO`").alias("HVO"),
+        convert_to_timestamp("`forecourts.price_change_effective.HVO`").alias("HVO_timestamp")
     )).distinct()
 
 

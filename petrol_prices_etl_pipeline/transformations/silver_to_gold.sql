@@ -1,4 +1,4 @@
--- POSTCODES
+-- -- POSTCODES
 
 CREATE MATERIALIZED VIEW gold.petrol_prices.postcodes AS
 WITH latest_postcodes AS (
@@ -15,90 +15,58 @@ SELECT DISTINCT
 FROM silver.petrol_prices.postcodes
 LEFT SEMI JOIN latest_postcodes l USING (postcode);
 
--- FUEL TYPES
+-- -- FUEL TYPES
 
 CREATE MATERIALIZED VIEW gold.petrol_prices.fuel_types AS
 SELECT DISTINCT * FROM silver.petrol_prices.fuel_types;
 
--- CLEANED PRICES
+-- -- FORECOURTS
+
+CREATE MATERIALIZED VIEW gold.petrol_prices.active_forecourts AS
+SELECT DISTINCT
+    entry_timestamp,
+    forecourt_id,
+    trading_name,
+    brand_name,
+    temporary_closure,
+    permanent_closure,
+    CASE WHEN motorway_service_station_flag THEN 'Motorway' WHEN supermarket_flag THEN 'Supermarket' ELSE 'Other' END AS forecourt_type,
+    postcode,
+    reported_latitude,
+    reported_longitude
+FROM silver.petrol_prices.forecourts
+WHERE __END_AT IS NULL AND temporary_closure = FALSE AND permanent_closure = FALSE;
+
+-- -- ORIGINAL PRICES
+
+CREATE MATERIALIZED VIEW gold.petrol_prices.latest_original_prices AS
+WITH latest_entries AS (
+    SELECT MAX(price_timestamp) as price_timestamp, forecourt_id, fuel_type_code
+    FROM silver.petrol_prices.prices
+    GROUP BY forecourt_id, fuel_type_code
+)
+SELECT
+    price_timestamp AS last_update,
+    postcode,
+    forecourt_id,
+    fuel_type_code,
+    original_price
+FROM silver.petrol_prices.prices
+LEFT SEMI JOIN latest_entries l USING (price_timestamp, forecourt_id, fuel_type_code);
+
+-- -- CLEANED PRICES
 
 CREATE MATERIALIZED VIEW gold.petrol_prices.latest_prices AS
 WITH latest_entries AS (
-    SELECT MAX(entry_timestamp) as entry_timestamp, name, postcode
+    SELECT MAX(price_timestamp) as price_timestamp, forecourt_id, fuel_type_code
     FROM silver.petrol_prices.prices
-    GROUP BY name, postcode
-), normalised AS (
-    SELECT
-        name,
-        entry_timestamp AS last_update,
-        forecourt_id,
-        trading_name,
-        brand_name,
-        CASE WHEN motorway_service_station_flag THEN 'Motorway' WHEN supermarket_flag THEN 'Supermarket' ELSE 'Other' END AS forecourt_type,
-        postcode,
-        latitude,
-        longitude,
-        `E5`,
-        `E10`,
-        `B7S`,
-        `B7P`,
-        `B10`,
-        `HV0`
-    FROM silver.petrol_prices.prices
-    LEFT SEMI JOIN latest_entries l USING (entry_timestamp, name, postcode)
-    WHERE temporary_closure = FALSE AND permanent_closure = FALSE
+    GROUP BY forecourt_id, fuel_type_code
 )
-SELECT * 
-FROM normalised
-UNPIVOT EXCLUDE NULLS (
-    price FOR fuel_type_code IN (
-        `E5`,
-        `E10`,
-        `B7S`,
-        `B7P`,
-        `B10`,
-        `HV0`
-    )
-)
-LEFT SEMI JOIN gold.petrol_prices.fuel_types f USING (fuel_type_code);
-
---- UNCLEANED
-
-CREATE MATERIALIZED VIEW gold.petrol_prices.uncleaned_latest_prices AS
-WITH latest_entries AS (
-    SELECT MAX(entry_timestamp) as entry_timestamp, name, postcode
-    FROM silver.petrol_prices.uncleaned_prices
-    GROUP BY name, postcode
-), normalised AS (
-    SELECT
-        name,
-        forecourt_id,
-        trading_name,
-        brand_name,
-        CASE WHEN motorway_service_station_flag THEN 'Motorway' WHEN supermarket_flag THEN 'Supermarket' ELSE 'Other' END AS forecourt_type,
-        postcode,
-        latitude,
-        longitude,
-        `E5`,
-        `E10`,
-        `B7S`,
-        `B7P`,
-        `B10`,
-        `HV0`
-    FROM silver.petrol_prices.uncleaned_prices
-    LEFT SEMI JOIN latest_entries l USING (entry_timestamp, name, postcode)
-    WHERE temporary_closure = FALSE AND permanent_closure = FALSE
-)
-SELECT * 
-FROM normalised
-UNPIVOT EXCLUDE NULLS (
-    price FOR fuel_type_code IN (
-        `E5`,
-        `E10`,
-        `B7S`,
-        `B7P`,
-        `B10`,
-        `HV0`
-    )
-)
-LEFT SEMI JOIN gold.petrol_prices.fuel_types f USING (fuel_type_code);
+SELECT
+    price_timestamp AS last_update,
+    postcode,
+    forecourt_id,
+    fuel_type_code,
+    price
+FROM silver.petrol_prices.prices
+LEFT SEMI JOIN latest_entries l USING (price_timestamp, forecourt_id, fuel_type_code);

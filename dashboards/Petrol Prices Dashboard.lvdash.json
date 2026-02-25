@@ -6,12 +6,9 @@
       "asset_name": "gold.petrol_prices.latest_prices_metric_view"
     },
     {
-      "name": "18b00571",
-      "displayName": "uncleaned_latest_prices",
-      "queryLines": [
-        "SELECT * FROM gold.petrol_prices.uncleaned_latest_prices p\n",
-        "INNER JOIN gold.petrol_prices.fuel_types f USING (fuel_type_code)"
-      ]
+      "name": "900d0b5f",
+      "displayName": "latest_original_prices_metric_view",
+      "asset_name": "gold.petrol_prices.latest_original_prices_metric_view"
     },
     {
       "name": "be70826a",
@@ -19,14 +16,13 @@
       "queryLines": [
         "WITH base_model AS (\n",
         "  SELECT \n",
-        "    name,\n",
-        "    forecourt_id,\n",
-        "    trading_name,\n",
-        "    brand_name,\n",
-        "    forecourt_type,\n",
-        "    l.postcode,\n",
-        "    fuel_type_description,\n",
-        "    price,\n",
+        "    l.forecourt_id,\n",
+        "    fc.brand_name,\n",
+        "    fc.trading_name,\n",
+        "    fc.forecourt_type,\n",
+        "    fc.postcode,\n",
+        "    f.fuel_type_description,\n",
+        "    l.price,\n",
         "    p.geographic_postcode,\n",
         "    p.outward_postcode,\n",
         "    p.latitude,\n",
@@ -36,6 +32,7 @@
         "  FROM latest_prices l\n",
         "  INNER JOIN postcodes p USING (postcode)\n",
         "  INNER JOIN fuel_types f USING (fuel_type_code)\n",
+        "  INNER JOIN active_forecourts fc USING (forecourt_id)\n",
         "  LEFT OUTER JOIN postcodes sp ON sp.postcode = :start_postcode\n",
         "  WHERE NOT array_contains(:forecourts, brand_name) OR :forecourts IS NULL\n",
         "),\n",
@@ -69,10 +66,10 @@
         "  MIN(total_cost) OVER(PARTITION BY 1) / 100 AS cheapest_cost_pounds,\n",
         "  MIN_BY(distance, total_cost) OVER(PARTITION BY 1) AS cheapest_distance,\n",
         "  MIN_BY(postcode, total_cost) OVER(PARTITION BY 1) AS cheapest_postcode,\n",
-        "  MIN_BY(name, total_cost) OVER(PARTITION BY 1) AS cheapest_name,\n",
+        "  MIN_BY(trading_name, total_cost) OVER(PARTITION BY 1) AS cheapest_trading_name,\n",
         "  MIN_BY(brand_name, total_cost) OVER(PARTITION BY 1) AS cheapest_brand_name\n",
         "FROM driving_calc dc\n",
-        "WHERE dc.distance IS NULL OR dc.distance <= :distance_limit\n",
+        "WHERE dc.distance <= :distance_limit\n",
         "ORDER BY total_cost_pence ASC NULLS LAST"
       ],
       "parameters": [
@@ -166,7 +163,7 @@
       "name": "e6c87f31",
       "displayName": "Forecourt Names",
       "queryLines": [
-        "SELECT DISTINCT brand_name FROM latest_prices"
+        "SELECT DISTINCT brand_name FROM active_forecourts"
       ],
       "catalog": "gold",
       "schema": "petrol_prices"
@@ -176,143 +173,6 @@
     {
       "name": "4356ae37",
       "displayName": "Global Filters",
-      "layout": [
-        {
-          "widget": {
-            "name": "422a8831",
-            "queries": [
-              {
-                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10993f8ea16708ac4ddfc4e3d4271_forecourt_type",
-                "query": {
-                  "datasetName": "c1cc37f0",
-                  "fields": [
-                    {
-                      "name": "forecourt_type",
-                      "expression": "`forecourt_type`"
-                    },
-                    {
-                      "name": "forecourt_type_associativity",
-                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "frame": {
-                "showTitle": true
-              },
-              "widgetType": "filter-single-select",
-              "encodings": {
-                "fields": [
-                  {
-                    "fieldName": "forecourt_type",
-                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10993f8ea16708ac4ddfc4e3d4271_forecourt_type"
-                  }
-                ]
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 4,
-            "width": 1,
-            "height": 2
-          }
-        },
-        {
-          "widget": {
-            "name": "5882b0b8",
-            "queries": [
-              {
-                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10993f8ea16708ac4ddfc4e3d4271_outward_postcode",
-                "query": {
-                  "datasetName": "c1cc37f0",
-                  "fields": [
-                    {
-                      "name": "outward_postcode",
-                      "expression": "`outward_postcode`"
-                    },
-                    {
-                      "name": "outward_postcode_associativity",
-                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "frame": {
-                "showTitle": true
-              },
-              "widgetType": "filter-single-select",
-              "encodings": {
-                "fields": [
-                  {
-                    "fieldName": "outward_postcode",
-                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10993f8ea16708ac4ddfc4e3d4271_outward_postcode"
-                  }
-                ]
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 2,
-            "width": 1,
-            "height": 2
-          }
-        },
-        {
-          "widget": {
-            "name": "a8ab6970",
-            "queries": [
-              {
-                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10993f8ea16708ac4ddfc4e3d4271_geographic_postcode",
-                "query": {
-                  "datasetName": "c1cc37f0",
-                  "fields": [
-                    {
-                      "name": "geographic_postcode",
-                      "expression": "`geographic_postcode`"
-                    },
-                    {
-                      "name": "geographic_postcode_associativity",
-                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "frame": {
-                "showTitle": true
-              },
-              "widgetType": "filter-single-select",
-              "encodings": {
-                "fields": [
-                  {
-                    "fieldName": "geographic_postcode",
-                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10993f8ea16708ac4ddfc4e3d4271_geographic_postcode"
-                  }
-                ]
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 0,
-            "width": 1,
-            "height": 2
-          }
-        }
-      ],
       "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
       "layoutVersion": "GRID_V1"
     },
@@ -327,7 +187,7 @@
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "18b00571",
+                  "datasetName": "900d0b5f",
                   "fields": [
                     {
                       "name": "forecourt_type",
@@ -342,8 +202,8 @@
                       "expression": "`longitude`"
                     },
                     {
-                      "name": "fuel_type_code",
-                      "expression": "`fuel_type_code`"
+                      "name": "fuel_type_description",
+                      "expression": "`fuel_type_description`"
                     }
                   ],
                   "disaggregated": true
@@ -396,7 +256,7 @@
                     "displayName": "Forecourt Type"
                   },
                   {
-                    "fieldName": "fuel_type_code"
+                    "fieldName": "fuel_type_description"
                   }
                 ]
               }
@@ -416,7 +276,7 @@
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "18b00571",
+                  "datasetName": "900d0b5f",
                   "fields": [
                     {
                       "name": "fuel_type_description",
@@ -490,7 +350,7 @@
           "position": {
             "x": 0,
             "y": 16,
-            "width": 10,
+            "width": 11,
             "height": 9
           }
         }
@@ -649,6 +509,10 @@
                           "themeColorType": "visualizationColors",
                           "position": 2
                         }
+                      },
+                      {
+                        "value": null,
+                        "color": "#4FEB23"
                       }
                     ]
                   }
