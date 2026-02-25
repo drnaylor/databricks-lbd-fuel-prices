@@ -17,7 +17,7 @@ In that volume, there should be three directories:
 |B7S|Diesel|
 |B7P|Premium Diesel|
 |B10|Biodiesel|
-|HV0|Hydrogen|
+|HVO|Hydrogen|
 
 * `postcode`, that could contain at least one CSV file with at least the following columns:
     * `postcode`
