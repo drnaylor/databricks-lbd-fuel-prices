@@ -239,13 +239,6 @@
                           "themeColorType": "visualizationColors",
                           "position": 2
                         }
-                      },
-                      {
-                        "value": "Other",
-                        "color": {
-                          "themeColorType": "visualizationColors",
-                          "position": 1
-                        }
                       }
                     ]
                   }
@@ -264,7 +257,7 @@
           },
           "position": {
             "x": 0,
-            "y": 0,
+            "y": 1,
             "width": 11,
             "height": 16
           }
@@ -349,9 +342,147 @@
           },
           "position": {
             "x": 0,
-            "y": 16,
+            "y": 17,
             "width": 11,
             "height": 9
+          }
+        },
+        {
+          "widget": {
+            "name": "cef44450",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f11235235c1c2dbc682e88a6f9c429_fuel_type_description",
+                "query": {
+                  "datasetName": "900d0b5f",
+                  "fields": [
+                    {
+                      "name": "fuel_type_description",
+                      "expression": "`fuel_type_description`"
+                    },
+                    {
+                      "name": "fuel_type_description_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Fuel Types"
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "fuel_type_description",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f11235235c1c2dbc682e88a6f9c429_fuel_type_description"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "9cf11749",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f11235235c1c2dbc682e88a6f9c429_geographic_postcode",
+                "query": {
+                  "datasetName": "900d0b5f",
+                  "fields": [
+                    {
+                      "name": "geographic_postcode",
+                      "expression": "`geographic_postcode`"
+                    },
+                    {
+                      "name": "geographic_postcode_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Geographic Postcode"
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "geographic_postcode",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f11235235c1c2dbc682e88a6f9c429_geographic_postcode"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "e5083a14",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f11235235c1c2dbc682e88a6f9c429_outward_postcode",
+                "query": {
+                  "datasetName": "900d0b5f",
+                  "fields": [
+                    {
+                      "name": "outward_postcode",
+                      "expression": "`outward_postcode`"
+                    },
+                    {
+                      "name": "outward_postcode_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Outward Postcode"
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "outward_postcode",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f11235235c1c2dbc682e88a6f9c429_outward_postcode"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 0,
+            "width": 3,
+            "height": 1
           }
         }
       ],
@@ -440,7 +571,7 @@
           "position": {
             "x": 0,
             "y": 13,
-            "width": 8,
+            "width": 12,
             "height": 9
           }
         },
@@ -472,12 +603,12 @@
             ],
             "spec": {
               "version": 2,
-              "frame": {
-                "title": "Super Unleaded Prices by Forecourt Type (Map)",
-                "showTitle": true
-              },
               "mark": {
                 "size": -0.2
+              },
+              "frame": {
+                "title": "Forecourt Locations (Map)",
+                "showTitle": true
               },
               "widgetType": "symbol-map",
               "encodings": {
@@ -509,7 +640,7 @@
           "position": {
             "x": 0,
             "y": 1,
-            "width": 8,
+            "width": 12,
             "height": 12
           }
         },
@@ -995,7 +1126,7 @@
           },
           "position": {
             "x": 6,
-            "y": 18,
+            "y": 20,
             "width": 6,
             "height": 7
           }
@@ -1012,6 +1143,10 @@
                     {
                       "name": "brand_name",
                       "expression": "`brand_name`"
+                    },
+                    {
+                      "name": "trading_name",
+                      "expression": "`trading_name`"
                     },
                     {
                       "name": "postcode",
@@ -1050,6 +1185,9 @@
                   {
                     "fieldName": "brand_name",
                     "displayName": "Forecourt Brand name"
+                  },
+                  {
+                    "fieldName": "trading_name"
                   },
                   {
                     "fieldName": "postcode",
@@ -1121,9 +1259,9 @@
           },
           "position": {
             "x": 0,
-            "y": 25,
+            "y": 27,
             "width": 12,
-            "height": 9
+            "height": 15
           }
         },
         {
@@ -1215,7 +1353,7 @@
           },
           "position": {
             "x": 0,
-            "y": 11,
+            "y": 13,
             "width": 12,
             "height": 7
           }
@@ -1263,7 +1401,7 @@
           },
           "position": {
             "x": 8,
-            "y": 6,
+            "y": 8,
             "width": 2,
             "height": 3
           }
@@ -1305,10 +1443,6 @@
             ],
             "spec": {
               "version": 2,
-              "frame": {
-                "showTitle": true,
-                "title": "Excluded Forecourts"
-              },
               "selection": {
                 "defaultSelection": {
                   "operator": {
@@ -1316,6 +1450,10 @@
                     "args": []
                   }
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Excluded Forecourt Brands"
               },
               "widgetType": "filter-multi-select",
               "encodings": {
@@ -1373,7 +1511,7 @@
           },
           "position": {
             "x": 10,
-            "y": 6,
+            "y": 8,
             "width": 2,
             "height": 3
           }
@@ -1405,14 +1543,14 @@
           },
           "position": {
             "x": 0,
-            "y": 9,
+            "y": 11,
             "width": 12,
             "height": 2
           }
         },
         {
           "widget": {
-            "name": "772cca2a",
+            "name": "brand-name",
             "queries": [
               {
                 "name": "main_query",
@@ -1431,8 +1569,8 @@
             "spec": {
               "version": 2,
               "frame": {
-                "showTitle": false,
-                "title": ""
+                "showTitle": true,
+                "title": "Brand Name"
               },
               "widgetType": "counter",
               "encodings": {
@@ -1492,7 +1630,7 @@
           },
           "position": {
             "x": 4,
-            "y": 6,
+            "y": 8,
             "width": 2,
             "height": 3
           }
@@ -1540,7 +1678,7 @@
           },
           "position": {
             "x": 2,
-            "y": 6,
+            "y": 8,
             "width": 2,
             "height": 3
           }
@@ -1579,7 +1717,7 @@
           },
           "position": {
             "x": 0,
-            "y": 6,
+            "y": 8,
             "width": 2,
             "height": 3
           }
@@ -1627,7 +1765,7 @@
           },
           "position": {
             "x": 6,
-            "y": 6,
+            "y": 8,
             "width": 2,
             "height": 3
           }
@@ -1701,9 +1839,48 @@
           },
           "position": {
             "x": 0,
-            "y": 18,
+            "y": 20,
             "width": 6,
             "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "trading-name",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "be70826a",
+                  "fields": [
+                    {
+                      "name": "cheapest_trading_name",
+                      "expression": "`cheapest_trading_name`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Trading Name"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "cheapest_trading_name"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 12,
+            "height": 2
           }
         }
       ],

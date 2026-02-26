@@ -6,44 +6,98 @@ from pyspark.sql.types import BooleanType, DoubleType, IntegerType, StringType, 
 
 from datetime import datetime
 
+def clean_postcode(col: str | Column):
+    colfunc = F.col(col) if isinstance(col, str) else col
+    return F.when(
+        F.regexp_count(F.trim(colfunc), F.lit(r"\s+")) == 0, 
+        F.upper(F.concat_ws(" ", F.substring(colfunc, 1, F.length(colfunc) - 3), F.substring(colfunc, F.length(colfunc) - 3, 3)))
+    ).otherwise(F.upper(colfunc))
+
+@dp.table(private=True)
+def prepare_data_for_cdc():
+    """
+    Private table to perform transformations before injecting them into the CDC flow.
+    """
+    return (
+        spark.readStream
+            .option("skipChangeCommits", "true")
+            .table("bronze.petrol_prices.prices_raw")
+            .select(
+                F.col("entry_timestamp"),
+                F.col("trading_name"),
+                F.col("brand_name"),
+                F.col("motorway_service_station_flag"),
+                F.col("supermarket_flag"),
+                F.col("phone_number"),
+                F.col("temporary_closure"),
+                F.col("permanent_closure"),
+                clean_postcode("postcode").alias("postcode"),
+                F.col("address_line_1"),
+                F.col("address_line_2"),
+                F.col("city"),
+                F.col("county"),
+                F.col("country"),
+                F.col("latitude"),
+                F.col("longitude"),
+                F.col("E5"),
+                F.col("E5_timestamp"),
+                F.col("E10"),
+                F.col("E10_timestamp"),
+                F.col("B7P"),
+                F.col("B7P_timestamp"),
+                F.col("B7S"),
+                F.col("B7S_timestamp"),
+                F.col("B10"),
+                F.col("B10_timestamp"),
+                F.col("HVO"),
+                F.col("HVO_timestamp")
+            ).withColumn(
+                "forecourt_id",
+                # The Forecourt ID changes for some forecourts, so we generate our own based on postcode and
+                # trading name.
+                F.xxhash64(clean_postcode("postcode"), F.col("trading_name"))
+            )
+    )
+
+
 dp.create_streaming_table("silver.petrol_prices.cdc_data")
 
 dp.create_auto_cdc_flow(
-    source="bronze.petrol_prices.prices_raw",
+    source="prepare_data_for_cdc",
     target="silver.petrol_prices.cdc_data",
     keys=["forecourt_id"],
     sequence_by="entry_timestamp",
     stored_as_scd_type=2,
     column_list=[
-        "entry_timestamp",
-        "forecourt_id",
-        "trading_name",
-        "brand_name",
-        "motorway_service_station_flag",
-        "supermarket_flag",
-        "phone_number",
-        "temporary_closure",
-        "permanent_closure",
-        "postcode",
-        "address_line_1",
-        "address_line_2",
-        "city",
-        "county",
-        "country",
-        "latitude",
-        "longitude",
-        "E5",
-        "E5_timestamp",
-        "E10",
-        "E10_timestamp",
-        "B7P",
-        "B7P_timestamp",
-        "B7S",
-        "B7S_timestamp",
-        "B10",
-        "B10_timestamp",
-        "HVO",
-        "HVO_timestamp"
+        F.col("entry_timestamp"),
+        F.col("forecourt_id"),
+        F.col("trading_name"),
+        F.col("brand_name"),
+        F.col("motorway_service_station_flag"),
+        F.col("supermarket_flag"),
+        F.col("phone_number"),
+        F.col("temporary_closure"),
+        F.col("permanent_closure"),
+        F.col("postcode"),
+        F.col("address_line_1"),
+        F.col("address_line_2"),
+        F.col("city"),
+        F.col("county"),
+        F.col("country"),
+        F.col("latitude"),
+        F.col("longitude"),
+        F.col("E5"),
+        F.col("E5_timestamp"),
+        F.col("E10"),
+        F.col("E10_timestamp"),
+        F.col("B7P"),
+        F.col("B7P_timestamp"),
+        F.col("B7S"),
+        F.col("B7S_timestamp"),
+        F.col("B10"),
+        F.col("B10_timestamp"),
+        F.col("HVO"),
+        F.col("HVO_timestamp")
     ]
 )
 
@@ -57,7 +111,7 @@ dp.create_auto_cdc_flow(
                    (LOWER(brand_name) NOT LIKE '%pre-prod%' OR brand_name IS NULL)
                    """)
 def forecourts_cleaned():
-    return spark.readStream.table("silver.petrol_prices.cdc_data").select(
+    return spark.readStream.option("skipChangeCommits", "true").table("silver.petrol_prices.cdc_data").select(
         F.col("entry_timestamp"),
         F.col("forecourt_id"),
         F.coalesce(F.col("trading_name"), F.col("brand_name")).alias("trading_name"),
@@ -80,8 +134,8 @@ def forecourts_cleaned():
     )
 
 @dp.table(
-  name="silver.petrol_prices.prices",
-  comment="Cleaned price data from the Petrol Prices API."
+  private=True,
+  name="silver.petrol_prices.prepare_prices"
 )
 @dp.expect_or_fail("no_outrageous_prices", """
         `price` IS NULL OR `price` BETWEEN 50.00 AND 500.00
@@ -145,6 +199,24 @@ def prices():
                 F.col("price_and_timestamp.price_timestamp").alias("price_timestamp")
             )
     )
+
+dp.create_streaming_table("silver.petrol_prices.prices")
+
+dp.create_auto_cdc_flow(
+    source="silver.petrol_prices.prepare_prices",
+    target="silver.petrol_prices.prices",
+    keys=["forecourt_id", "fuel_type_code"],
+    sequence_by="price_timestamp",
+    stored_as_scd_type=2,
+    column_list=[
+        F.col("forecourt_id"),
+        F.col("postcode"),
+        F.col("fuel_type_code"),
+        F.col("original_price"),
+        F.col("price"),
+        F.col("price_timestamp")
+    ]
+)
 
 @dp.table(
     name="silver.petrol_prices.postcodes",

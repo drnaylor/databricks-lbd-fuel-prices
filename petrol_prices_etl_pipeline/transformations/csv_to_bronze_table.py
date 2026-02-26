@@ -6,46 +6,6 @@ from pyspark.sql.types import BooleanType, DoubleType, IntegerType, StringType, 
 # Define the path to the source data
 prices_file_path = f"/Volumes/bronze/petrol_prices/csv/prices"
 
-def create_price_cols(type: str):
-    return [
-      StructField(f"forecourts.fuel_price.{type}", DecimalType(10,4), True),
-      StructField(f"forecourts.price_change_effective.{type}", StringType(), True),
-      StructField(f"forecourts.price_submission_timestamp.{type}", StringType(), True)
-    ]
-
-# Define the CSV definition that we want to pull into a bronze layer
-prices_schema = StructType(
-  [
-    StructField("forecourt_update_timestamp", StringType(), True),
-    StructField("mft.name", StringType(), True),
-    StructField("forecourts.node_id", StringType(), True),
-    StructField("forecourts.trading_name", StringType(), True),
-    StructField("forecourts.brand_name", StringType(), True),
-    StructField("forecourts.is_motorway_service_station", BooleanType(), True),
-    StructField("forecourts.is_supermarket_service_station", BooleanType(), True),
-    StructField("forecourts.public_phone_number", StringType(), True),
-    StructField("forecourts.temporary_closure", StringType(), True),
-    StructField("forecourts.permanent_closure", StringType(), True),
-    StructField("forecourts.permanent_closure_date", StringType(), True),
-    StructField("forecourts.location.postcode", StringType(), True),
-    StructField("forecourts.location.address_line_1", StringType(), True),
-    StructField("forecourts.location.address_line_2", StringType(), True),
-    StructField("forecourts.location.city", StringType(), True),
-    StructField("forecourts.location.county", StringType(), True),
-    StructField("forecourts.location.country", StringType(), True),
-    StructField("forecourts.location.latitude", DecimalType(15,10), True),
-    StructField("forecourts.location.longitude", DecimalType(15,10), True),
-  ] 
-  # Order is important here...
-  + create_price_cols("E5") 
-  + create_price_cols("E10") 
-  + create_price_cols("B7S")
-  + create_price_cols("B7P")
-  + create_price_cols("B10")
-  + create_price_cols("HVO")
-  # later columns are not important for us so we don't define them.
-)
-
 @dp.table(
   name="bronze.petrol_prices.prices_raw",
   comment="Raw data from the Petrol Prices API."
@@ -65,7 +25,6 @@ def prices_raw():
 
   return (spark.readStream
     .format("cloudFiles")
-    .schema(prices_schema)
     .option("header", "true")
     .option("cloudFiles.format", "csv")
     .load(prices_file_path)
@@ -75,8 +34,8 @@ def prices_raw():
         F.col("`forecourts.node_id`").alias("forecourt_id"),
         F.col("`forecourts.trading_name`").alias("trading_name"),
         F.col("`forecourts.brand_name`").alias("brand_name"),
-        F.col("`forecourts.is_motorway_service_station`").alias("motorway_service_station_flag"),
-        F.col("`forecourts.is_supermarket_service_station`").alias("supermarket_flag"),
+        to_boolean("`forecourts.is_motorway_service_station`").alias("motorway_service_station_flag"),
+        to_boolean("`forecourts.is_supermarket_service_station`").alias("supermarket_flag"),
         F.col("`forecourts.public_phone_number`").alias("phone_number"),
         to_boolean("`forecourts.temporary_closure`").alias("temporary_closure"),
         to_boolean("`forecourts.permanent_closure`").alias("permanent_closure"),
@@ -86,20 +45,20 @@ def prices_raw():
         F.col("`forecourts.location.city`").alias("city"),
         F.col("`forecourts.location.county`").alias("county"),
         F.col("`forecourts.location.country`").alias("country"),
-        F.col("`forecourts.location.latitude`").alias("latitude"),
-        F.col("`forecourts.location.longitude`").alias("longitude"),
-        F.col("`forecourts.fuel_price.E5`").alias("E5"),
-        convert_to_timestamp("`forecourts.price_change_effective.E5`").alias("E5_timestamp"),
-        F.col("`forecourts.fuel_price.E10`").alias("E10"),
-        convert_to_timestamp("`forecourts.price_change_effective.E10`").alias("E10_timestamp"),
-        F.col("`forecourts.fuel_price.B7P`").alias("B7P"),
-        convert_to_timestamp("`forecourts.price_change_effective.B7P`").alias("B7P_timestamp"),
-        F.col("`forecourts.fuel_price.B7S`").alias("B7S"),
-        convert_to_timestamp("`forecourts.price_change_effective.B7S`").alias("B7S_timestamp"),
-        F.col("`forecourts.fuel_price.B10`").alias("B10"),
-        convert_to_timestamp("`forecourts.price_change_effective.B10`").alias("B10_timestamp"),
-        F.col("`forecourts.fuel_price.HVO`").alias("HVO"),
-        convert_to_timestamp("`forecourts.price_change_effective.HVO`").alias("HVO_timestamp")
+        F.col("`forecourts.location.latitude`").alias("latitude").cast(DecimalType(15,10)),
+        F.col("`forecourts.location.longitude`").alias("longitude").cast(DecimalType(15,10)),
+        F.col("`forecourts.fuel_price.E5`").alias("E5").cast(DecimalType(10,4)),
+        convert_to_timestamp("`forecourts.price_change_effective_timestamp.E5`").alias("E5_timestamp"),
+        F.col("`forecourts.fuel_price.E10`").alias("E10").cast(DecimalType(10,4)),
+        convert_to_timestamp("`forecourts.price_change_effective_timestamp.E10`").alias("E10_timestamp"),
+        F.col("`forecourts.fuel_price.B7P`").alias("B7P").cast(DecimalType(10,4)),
+        convert_to_timestamp("`forecourts.price_change_effective_timestamp.B7P`").alias("B7P_timestamp"),
+        F.col("`forecourts.fuel_price.B7S`").alias("B7S").cast(DecimalType(10,4)),
+        convert_to_timestamp("`forecourts.price_change_effective_timestamp.B7S`").alias("B7S_timestamp"),
+        F.col("`forecourts.fuel_price.B10`").alias("B10").cast(DecimalType(10,4)),
+        convert_to_timestamp("`forecourts.price_change_effective_timestamp.B10`").alias("B10_timestamp"),
+        F.col("`forecourts.fuel_price.HVO`").alias("HVO").cast(DecimalType(10,4)),
+        convert_to_timestamp("`forecourts.price_change_effective_timestamp.HVO`").alias("HVO_timestamp")
     )).distinct()
 
 
