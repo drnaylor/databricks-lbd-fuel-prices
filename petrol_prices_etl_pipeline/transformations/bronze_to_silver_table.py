@@ -101,9 +101,10 @@ dp.create_auto_cdc_flow(
     ]
 )
 
-@dp.table(
-  name="silver.petrol_prices.forecourts",
-  comment="Cleaned forecourt data from the Petrol Prices API."
+@dp.view(
+    name="prepare_forecourts",
+  #name="silver.petrol_prices.forecourts",
+  #comment="Cleaned forecourt data from the Petrol Prices API."
 )
 @dp.expect_or_drop("no_qa_entries", """
                    LOWER(trading_name) NOT LIKE '%preprod%' AND
@@ -111,7 +112,7 @@ dp.create_auto_cdc_flow(
                    (LOWER(brand_name) NOT LIKE '%pre-prod%' OR brand_name IS NULL)
                    """)
 def forecourts_cleaned():
-    return spark.readStream.option("skipChangeCommits", "true").table("silver.petrol_prices.cdc_data").select(
+    return spark.readStream.table("silver.petrol_prices.cdc_data").select(
         F.col("entry_timestamp"),
         F.col("forecourt_id"),
         F.coalesce(F.col("trading_name"), F.col("brand_name")).alias("trading_name"),
@@ -128,14 +129,23 @@ def forecourts_cleaned():
         F.col("county"),
         F.col("country"),
         F.col("latitude").alias("reported_latitude"),
-        F.col("longitude").alias("reported_longitude"),
-        F.col("__START_AT"),
-        F.col("__END_AT")
+        F.col("longitude").alias("reported_longitude")
     )
 
-@dp.table(
-  private=True,
-  name="silver.petrol_prices.prepare_prices"
+
+dp.create_streaming_table("silver.petrol_prices.forecourts")
+
+dp.create_auto_cdc_flow(
+    source="prepare_forecourts",
+    target="silver.petrol_prices.forecourts",
+    keys=["forecourt_id"],
+    sequence_by="entry_timestamp",
+    stored_as_scd_type=2
+)
+
+@dp.view(
+  #private=True,
+  name="prepare_prices"
 )
 @dp.expect_or_fail("no_outrageous_prices", """
         `price` IS NULL OR `price` BETWEEN 50.00 AND 500.00
@@ -167,8 +177,9 @@ def prices():
 
     return (
         spark.readStream
-            .option("skipChangeCommits", "true")
+            #.option("skipChangeCommits", "true")
             .table("silver.petrol_prices.cdc_data")
+            .where(F.col("__END_AT").isNull())
             .select(
                 F.col("forecourt_id"),
                 F.col("postcode"),
@@ -197,13 +208,15 @@ def prices():
                 F.col("price_and_timestamp.original_price").alias("original_price"),
                 F.col("price_and_timestamp.price").alias("price"),
                 F.col("price_and_timestamp.price_timestamp").alias("price_timestamp")
+            ).where(
+                F.col("price_timestamp").isNotNull()
             )
     )
 
 dp.create_streaming_table("silver.petrol_prices.prices")
 
 dp.create_auto_cdc_flow(
-    source="silver.petrol_prices.prepare_prices",
+    source="prepare_prices",
     target="silver.petrol_prices.prices",
     keys=["forecourt_id", "fuel_type_code"],
     sequence_by="price_timestamp",
