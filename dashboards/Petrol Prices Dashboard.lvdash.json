@@ -23,6 +23,7 @@
         "    fc.postcode,\n",
         "    f.fuel_type_description,\n",
         "    l.price,\n",
+        "    DATE_TRUNC('MINUTE', l.last_update) AS last_updated,\n",
         "    p.geographic_postcode,\n",
         "    p.outward_postcode,\n",
         "    p.latitude,\n",
@@ -35,6 +36,7 @@
         "  INNER JOIN active_forecourts fc USING (forecourt_id)\n",
         "  LEFT OUTER JOIN postcodes sp ON sp.postcode = :start_postcode\n",
         "  WHERE NOT array_contains(:forecourts, brand_name) OR :forecourts IS NULL\n",
+        "    AND l.last_update BETWEEN DATE_TRUNC('DAY', DATE_SUB(CURRENT_DATE(), 14)) AND CURRENT_TIMESTAMP() -- we only want the last 14 days of records, as if it hasn't updated since then it's really likely to be out of date.\n",
         "),\n",
         "mpg_calc AS (\n",
         "  SELECT \n",
@@ -1187,7 +1189,8 @@
                     "displayName": "Forecourt Brand name"
                   },
                   {
-                    "fieldName": "trading_name"
+                    "fieldName": "trading_name",
+                    "displayName": "Trading Name"
                   },
                   {
                     "fieldName": "postcode",
