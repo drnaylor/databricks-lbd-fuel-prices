@@ -13,7 +13,7 @@ def clean_postcode(col: str | Column):
         F.upper(F.concat_ws(" ", F.substring(colfunc, 1, F.length(colfunc) - 3), F.substring(colfunc, F.length(colfunc) - 3, 3)))
     ).otherwise(F.upper(colfunc))
 
-@dp.table(private=True)
+@dp.table(name="silver.petrol_prices.cdc_data")
 def prepare_data_for_cdc():
     """
     Private table to perform transformations before injecting them into the CDC flow.
@@ -59,50 +59,9 @@ def prepare_data_for_cdc():
             )
     )
 
-
-dp.create_streaming_table("silver.petrol_prices.cdc_data")
-
-dp.create_auto_cdc_flow(
-    source="prepare_data_for_cdc",
-    target="silver.petrol_prices.cdc_data",
-    keys=["forecourt_id"],
-    sequence_by="entry_timestamp",
-    stored_as_scd_type=2,
-    column_list=[
-        F.col("entry_timestamp"),
-        F.col("forecourt_id"),
-        F.col("trading_name"),
-        F.col("brand_name"),
-        F.col("motorway_service_station_flag"),
-        F.col("supermarket_flag"),
-        F.col("phone_number"),
-        F.col("temporary_closure"),
-        F.col("permanent_closure"),
-        F.col("postcode"),
-        F.col("address_line_1"),
-        F.col("address_line_2"),
-        F.col("city"),
-        F.col("county"),
-        F.col("country"),
-        F.col("latitude"),
-        F.col("longitude"),
-        F.col("E5"),
-        F.col("E5_timestamp"),
-        F.col("E10"),
-        F.col("E10_timestamp"),
-        F.col("B7P"),
-        F.col("B7P_timestamp"),
-        F.col("B7S"),
-        F.col("B7S_timestamp"),
-        F.col("B10"),
-        F.col("B10_timestamp"),
-        F.col("HVO"),
-        F.col("HVO_timestamp")
-    ]
-)
-
-@dp.view(
-    name="prepare_forecourts",
+@dp.table(
+    private=True,
+    name="prepare_forecourts"
   #name="silver.petrol_prices.forecourts",
   #comment="Cleaned forecourt data from the Petrol Prices API."
 )
@@ -143,8 +102,8 @@ dp.create_auto_cdc_flow(
     stored_as_scd_type=2
 )
 
-@dp.view(
-  #private=True,
+@dp.table(
+  private=True,
   name="prepare_prices"
 )
 @dp.expect_or_fail("no_outrageous_prices", """
@@ -179,7 +138,6 @@ def prices():
         spark.readStream
             #.option("skipChangeCommits", "true")
             .table("silver.petrol_prices.cdc_data")
-            .where(F.col("__END_AT").isNull())
             .select(
                 F.col("forecourt_id"),
                 F.col("postcode"),
