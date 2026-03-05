@@ -156,13 +156,13 @@ WHERE rn = 1 AND price IS NOT NULL;
 
 CREATE MATERIALIZED VIEW gold.petrol_prices.dates AS
 WITH min_date AS (
-    SELECT DATE_TRUNC(MIN(price_timestamp), 'DAY') AS first_date FROM silver.petrol_prices.prices
+    SELECT CAST(MIN(price_timestamp) as DATE) AS `date` FROM silver.petrol_prices.prices
 ),
 dates AS (
-    SELECT EXPLODE(SEQUENCE(first_date, CURRENT_DATE(), INTERVAL 1 DAY)) AS date
+    SELECT EXPLODE(SEQUENCE(`date`, CURRENT_DATE(), INTERVAL 1 DAY)) AS `date`
     FROM min_date
 )
 SELECT
-    DATE_FORMAT(date, 'yyyyMMdd') AS date_key,
-    date
+    DATE_FORMAT(`date`, 'yyyyMMdd') AS date_key,
+    `date`
 FROM dates;
