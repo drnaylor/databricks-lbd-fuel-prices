@@ -175,8 +175,7 @@
     {
       "name": "4356ae37",
       "displayName": "Global Filters",
-      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
-      "layoutVersion": "GRID_V1"
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS"
     },
     {
       "name": "0220c482",
@@ -1128,7 +1127,7 @@
           },
           "position": {
             "x": 6,
-            "y": 20,
+            "y": 23,
             "width": 6,
             "height": 7
           }
@@ -1262,7 +1261,7 @@
           },
           "position": {
             "x": 0,
-            "y": 27,
+            "y": 30,
             "width": 12,
             "height": 15
           }
@@ -1295,10 +1294,6 @@
                     {
                       "name": "price_per_litre_pounds",
                       "expression": "`price_per_litre_pounds`"
-                    },
-                    {
-                      "name": "fill_cost_pounds",
-                      "expression": "`fill_cost_pounds`"
                     }
                   ],
                   "disaggregated": true
@@ -1320,13 +1315,6 @@
                   "longitude": {
                     "fieldName": "longitude"
                   }
-                },
-                "size": {
-                  "fieldName": "fill_cost_pounds",
-                  "scale": {
-                    "type": "quantitative"
-                  },
-                  "displayName": "Cost to Fill"
                 },
                 "extra": [
                   {
@@ -1358,7 +1346,7 @@
             "x": 0,
             "y": 13,
             "width": 12,
-            "height": 7
+            "height": 10
           }
         },
         {
@@ -1842,7 +1830,7 @@
           },
           "position": {
             "x": 0,
-            "y": 20,
+            "y": 23,
             "width": 6,
             "height": 7
           }
