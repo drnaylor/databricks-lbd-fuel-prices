@@ -3,6 +3,13 @@
     {
       "name": "c1cc37f0",
       "displayName": "latest_prices_metric_view",
+      "columns": [
+        {
+          "displayName": "Average Fuel Price",
+          "description": "",
+          "expression": "AVG(price)"
+        }
+      ],
       "asset_name": "gold.petrol_prices.latest_prices_metric_view"
     },
     {
@@ -169,6 +176,11 @@
       ],
       "catalog": "gold",
       "schema": "petrol_prices"
+    },
+    {
+      "name": "8f0664c5",
+      "displayName": "price_history_metric_view",
+      "asset_name": "gold.petrol_prices.price_history_metric_view"
     }
   ],
   "pages": [
@@ -1872,6 +1884,596 @@
             "y": 6,
             "width": 12,
             "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "70348b10",
+      "displayName": "Per Day",
+      "layout": [
+        {
+          "widget": {
+            "name": "fuel-data",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_date",
+                "query": {
+                  "datasetName": "8f0664c5",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "DATE",
+                    "values": [
+                      {
+                        "value": "now/d"
+                      }
+                    ]
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Fuel Data for:"
+              },
+              "widgetType": "filter-date-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "date",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_date"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "geographic-postcode",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_geographic_postcode",
+                "query": {
+                  "datasetName": "8f0664c5",
+                  "fields": [
+                    {
+                      "name": "geographic_postcode",
+                      "expression": "`geographic_postcode`"
+                    },
+                    {
+                      "name": "geographic_postcode_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Geographic Postcode:"
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "geographic_postcode",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_geographic_postcode"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 4,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "2d5f5bfd",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_outward_postcode",
+                "query": {
+                  "datasetName": "8f0664c5",
+                  "fields": [
+                    {
+                      "name": "outward_postcode",
+                      "expression": "`outward_postcode`"
+                    },
+                    {
+                      "name": "outward_postcode_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Outward Postcode:"
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "outward_postcode",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_outward_postcode"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 4,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "2ccaae29",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "8f0664c5",
+                  "fields": [
+                    {
+                      "name": "fuel_type_description",
+                      "expression": "`fuel_type_description`"
+                    },
+                    {
+                      "name": "outward_postcode",
+                      "expression": "`outward_postcode`"
+                    },
+                    {
+                      "name": "measure(mean)",
+                      "expression": "MEASURE(`mean`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Average Petrol Price by Postcode",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "outward_postcode",
+                  "axis": {
+                    "labelAngle": 45
+                  },
+                  "displayName": "Outward Postcode",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(mean)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    },
+                    "abbreviation": "none"
+                  },
+                  "displayName": "Average Price (pence/litre)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "fuel_type_description",
+                  "legend": {
+                    "position": "right"
+                  },
+                  "displayName": "Fuel Type",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": false
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 12,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "fuel-type",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_fuel_type_description",
+                "query": {
+                  "datasetName": "8f0664c5",
+                  "fields": [
+                    {
+                      "name": "fuel_type_description",
+                      "expression": "`fuel_type_description`"
+                    },
+                    {
+                      "name": "fuel_type_description_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Fuel Type"
+              },
+              "disallowAll": true,
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "Unleaded"
+                      }
+                    ]
+                  }
+                }
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "fuel_type_description",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_fuel_type_description"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "f66c7b90",
+      "displayName": "History",
+      "layout": [
+        {
+          "widget": {
+            "name": "dates",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_date",
+                "query": {
+                  "datasetName": "8f0664c5",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Dates"
+              },
+              "selection": {
+                "defaultSelection": {
+                  "range": {
+                    "dataType": "DATE",
+                    "min": {
+                      "value": "now-14d/d"
+                    },
+                    "max": {
+                      "value": "now/d"
+                    }
+                  }
+                }
+              },
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "date",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_date"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "fuel-type",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_fuel_type_description",
+                "query": {
+                  "datasetName": "8f0664c5",
+                  "fields": [
+                    {
+                      "name": "fuel_type_description",
+                      "expression": "`fuel_type_description`"
+                    },
+                    {
+                      "name": "fuel_type_description_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Fuel Type"
+              },
+              "disallowAll": true,
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "Unleaded"
+                      }
+                    ]
+                  }
+                }
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "fuel_type_description",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_fuel_type_description"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "fuel-price-trends",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "8f0664c5",
+                  "fields": [
+                    {
+                      "name": "daily(date)",
+                      "expression": "DATE_TRUNC(\"DAY\", `date`)"
+                    },
+                    {
+                      "name": "measure(mean)",
+                      "expression": "MEASURE(`mean`)"
+                    },
+                    {
+                      "name": "measure(upper_quartile)",
+                      "expression": "MEASURE(`upper_quartile`)"
+                    },
+                    {
+                      "name": "measure(lower_quartile)",
+                      "expression": "MEASURE(`lower_quartile`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Fuel Price Trends"
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "daily(date)",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "measure(mean)"
+                    },
+                    {
+                      "fieldName": "measure(upper_quartile)"
+                    },
+                    {
+                      "fieldName": "measure(lower_quartile)"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 11,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "geographic-postcode",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_geographic_postcode",
+                "query": {
+                  "datasetName": "8f0664c5",
+                  "fields": [
+                    {
+                      "name": "geographic_postcode",
+                      "expression": "`geographic_postcode`"
+                    },
+                    {
+                      "name": "geographic_postcode_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Geographic Postcode"
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "geographic_postcode",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_geographic_postcode"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 0,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "eabea5c6",
+            "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_outward_postcode",
+                "query": {
+                  "datasetName": "8f0664c5",
+                  "fields": [
+                    {
+                      "name": "outward_postcode",
+                      "expression": "`outward_postcode`"
+                    },
+                    {
+                      "name": "outward_postcode_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Outward Postcode"
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "outward_postcode",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_outward_postcode"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 3,
+            "height": 1
           }
         }
       ],
