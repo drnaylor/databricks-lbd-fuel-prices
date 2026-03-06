@@ -1992,9 +1992,9 @@
             }
           },
           "position": {
-            "x": 4,
+            "x": 5,
             "y": 0,
-            "width": 4,
+            "width": 3,
             "height": 1
           }
         },
@@ -2073,7 +2073,7 @@
             "spec": {
               "version": 3,
               "frame": {
-                "title": "Average Petrol Price by Postcode",
+                "title": "Average Petrol Price by Outward Postcode",
                 "showTitle": true
               },
               "widgetType": "bar",
@@ -2124,7 +2124,7 @@
           },
           "position": {
             "x": 0,
-            "y": 1,
+            "y": 7,
             "width": 12,
             "height": 7
           }
@@ -2184,8 +2184,134 @@
           "position": {
             "x": 2,
             "y": 0,
-            "width": 2,
+            "width": 3,
             "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "0a236224",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "8f0664c5",
+                  "fields": [
+                    {
+                      "name": "min(price)",
+                      "expression": "MIN(`price`)"
+                    },
+                    {
+                      "name": "q1(price)",
+                      "expression": "PERCENTILE(`price`, 0.25)"
+                    },
+                    {
+                      "name": "median(price)",
+                      "expression": "MEDIAN(`price`)"
+                    },
+                    {
+                      "name": "q3(price)",
+                      "expression": "PERCENTILE(`price`, 0.75)"
+                    },
+                    {
+                      "name": "max(price)",
+                      "expression": "MAX(`price`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "box",
+              "encodings": {
+                "y": {
+                  "whiskerStart": {
+                    "fieldName": "min(price)"
+                  },
+                  "boxStart": {
+                    "fieldName": "q1(price)"
+                  },
+                  "boxMid": {
+                    "fieldName": "median(price)"
+                  },
+                  "boxEnd": {
+                    "fieldName": "q3(price)"
+                  },
+                  "whiskerEnd": {
+                    "fieldName": "max(price)"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 14,
+            "width": 12,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "average-fuel-price",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "8f0664c5",
+                  "fields": [
+                    {
+                      "name": "measure(mean_pounds)",
+                      "expression": "MEASURE(`mean_pounds`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Average Fuel Price per Litre"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(mean_pounds)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "GBP",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 3
+                    }
+                  },
+                  "style": {
+                    "rules": [
+                      {
+                        "condition": {
+                          "operator": ">="
+                        },
+                        "color": "#00A972"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 6,
+            "height": 6
           }
         }
       ],
