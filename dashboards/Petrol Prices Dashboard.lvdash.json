@@ -42,7 +42,7 @@
         "  INNER JOIN fuel_types f USING (fuel_type_code)\n",
         "  INNER JOIN active_forecourts fc USING (forecourt_id)\n",
         "  LEFT OUTER JOIN postcodes sp ON sp.postcode = :start_postcode\n",
-        "  WHERE NOT array_contains(:forecourts, brand_name) OR :forecourts IS NULL\n",
+        "  WHERE (NOT array_contains(:forecourts, brand_name) OR :forecourts IS NULL)\n",
         "    AND l.last_update BETWEEN DATE_TRUNC('DAY', DATE_SUB(CURRENT_DATE(), 14)) AND CURRENT_TIMESTAMP() -- we only want the last 14 days of records, as if it hasn't updated since then it's really likely to be out of date.\n",
         "),\n",
         "mpg_calc AS (\n",
@@ -1184,6 +1184,10 @@
                     {
                       "name": "total_cost_pounds",
                       "expression": "`total_cost_pounds`"
+                    },
+                    {
+                      "name": "last_updated",
+                      "expression": "`last_updated`"
                     }
                   ],
                   "disaggregated": true
@@ -1266,6 +1270,10 @@
                       "hideGroupSeparator": true
                     },
                     "displayName": "Total Cost"
+                  },
+                  {
+                    "fieldName": "last_updated",
+                    "displayName": "Last Updated"
                   }
                 ]
               }

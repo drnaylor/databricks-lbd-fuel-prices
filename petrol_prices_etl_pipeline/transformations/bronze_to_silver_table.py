@@ -55,7 +55,7 @@ def prepare_data_for_cdc():
                 "forecourt_id",
                 # The Forecourt ID changes for some forecourts, so we generate our own based on postcode and
                 # trading name.
-                F.xxhash64(clean_postcode("postcode"), F.col("trading_name"))
+                F.xxhash64(F.col("postcode"), F.col("trading_name"))
             )
     )
 

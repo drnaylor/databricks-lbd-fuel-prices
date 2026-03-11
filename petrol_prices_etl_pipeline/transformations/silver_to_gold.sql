@@ -181,7 +181,8 @@ joined_forecourt_price_data AS (
         o.price,
         fr.entry_id AS forecourt_entry_id
     FROM ordered o
-    INNER JOIN forecourt_ranges2 fr ON o.date_key BETWEEN fr.start_date_key AND fr.end_date_key AND fr.forecourt_id = o.forecourt_id
+    INNER JOIN forecourt_ranges2 fr ON o.date_key BETWEEN fr.start_date_key AND fr.end_date_key 
+        AND fr.forecourt_id = o.forecourt_id
     WHERE o.rn = 1 AND o.price IS NOT NULL AND NOT fr.closed
 )
 -- Finally, we explode the date column to be able to join on a date by date basis
