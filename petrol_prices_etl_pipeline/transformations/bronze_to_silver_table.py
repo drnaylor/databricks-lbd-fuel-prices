@@ -116,7 +116,7 @@ def prices():
             F.when(col < 0.5, F.lit(None)) # We're not reporting it
                .when(col < 2.50, col * 100.0) # we have pounds, we want pence
                .when(col < 50.00, col * 10.0) # Dimes...
-               .when(col > 1000.00, col / F.floor(F.log10(col) - 3)) # We expect a number that is three whole digits, so we take it down this way
+               .when(col > 1000.00, col / F.ceil(F.log10(col) - 3)) # We expect a number that is three whole digits, so we take it down this way
                .when(col > 500.00, col / 10.0)
                .otherwise(col)
                .alias(col_name)
