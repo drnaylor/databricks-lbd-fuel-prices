@@ -1,3 +1,4 @@
+
 # Import modules
 from pyspark import pipelines as dp
 from pyspark.sql import Column
@@ -116,7 +117,10 @@ def prices():
             F.when(col < 0.5, F.lit(None)) # We're not reporting it
                .when(col < 2.50, col * 100.0) # we have pounds, we want pence
                .when(col < 50.00, col * 10.0) # Dimes...
-               .when(col > 1000.00, col / F.ceil(F.log10(col) - 3)) # We expect a number that is three whole digits, so we take it down this way
+               # We expect a number that is three whole digits, so we take it down this way. We want to divide
+               # by 10 if we have four digits to get to 3 digits, noting log10(1000) is 3 so we would want 10 out of this,
+               # which is 10 ^ [log_10(1000) - 2] => 10 ^ (3 - 2) => 10 ^ 1 => 10
+               .when(col > 1000.00, col / (F.power(10, F.floor(F.log10(col) - 2))))
                .when(col > 500.00, col / 10.0)
                .otherwise(col)
                .alias(col_name)
