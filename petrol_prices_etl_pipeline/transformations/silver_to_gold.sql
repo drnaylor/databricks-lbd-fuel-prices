@@ -222,12 +222,3 @@ SELECT
     INT(DATE_FORMAT(`date`, 'yyyyMMdd')) AS date_key,
     `date`
 FROM dates;
-
--- FUEL TYPE DIMENSION
-
-CREATE MATERIALIZED VIEW gold.petrol_prices.fuel_types AS
-SELECT DISTINCT
-    fuel_type_code,
-    fuel_type_description
-FROM silver.petrol_prices.fuel_types
-WHERE fuel_type_code IS NOT NULL AND fuel_type_description IS NOT NULL;
