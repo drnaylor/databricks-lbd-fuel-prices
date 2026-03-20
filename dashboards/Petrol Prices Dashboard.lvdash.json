@@ -181,6 +181,140 @@
       "name": "8f0664c5",
       "displayName": "price_history_metric_view",
       "asset_name": "gold.petrol_prices.price_history_metric_view"
+    },
+    {
+      "name": "e0216979",
+      "displayName": "fuel_difference",
+      "queryLines": [
+        "WITH postcodes AS (\n",
+        "    SELECT postcode\n",
+        "    FROM gold.petrol_prices.postcodes\n",
+        "    WHERE (ARRAY_CONTAINS(:geo_postcode, geographic_postcode) OR :geo_postcode IS NULL) \n",
+        "        AND (ARRAY_CONTAINS(:outward_postcode, outward_postcode) OR :outward_postcode IS NULL)\n",
+        "), \n",
+        "fuel_type AS (\n",
+        "    SELECT fuel_type_code\n",
+        "    FROM gold.petrol_prices.fuel_types\n",
+        "    WHERE fuel_type_description = :p_fuel\n",
+        "),\n",
+        "valid_data_points AS (\n",
+        "    SELECT ph.* \n",
+        "    FROM gold.petrol_prices.price_history ph\n",
+        "    LEFT SEMI JOIN postcodes ON postcodes.postcode = ph.postcode\n",
+        "    LEFT SEMI JOIN fuel_type ON fuel_type.fuel_type_code = ph.fuel_type_code\n",
+        "    INNER JOIN gold.petrol_prices.dates d ON d.date_key = ph.date_key\n",
+        "    WHERE d.date BETWEEN :p_date.min AND :p_date.max\n",
+        "),\n",
+        "extremes AS (\n",
+        "    SELECT MIN(date_key) as early, MAX(date_key) as late FROM valid_data_points\n",
+        "),\n",
+        "early_date AS (\n",
+        "    SELECT ph.date_key, ROUND(AVG(price) / 100.0, 3) as mean_price_pounds\n",
+        "    FROM valid_data_points ph\n",
+        "    LEFT SEMI JOIN extremes ON extremes.early = ph.date_key\n",
+        "    GROUP BY ph.date_key\n",
+        "),\n",
+        "late_date AS (\n",
+        "    SELECT ph.date_key, ROUND(AVG(price) / 100.0, 3) as mean_price_pounds\n",
+        "    FROM valid_data_points ph\n",
+        "    LEFT SEMI JOIN extremes ON extremes.late = ph.date_key\n",
+        "    GROUP BY ph.date_key\n",
+        "), daily AS (\n",
+        "    SELECT \n",
+        "        ph.date_key as date_key,\n",
+        "        ROUND(AVG(price), 1) as mean_price,\n",
+        "        MIN(price) as min_price,\n",
+        "        MAX(price) as max_price,\n",
+        "        PERCENTILE(price, 0.25) as lower_quartile_price,\n",
+        "        MEDIAN(price) as median_price,\n",
+        "        PERCENTILE(price, 0.75) as upper_quartile_price\n",
+        "    FROM valid_data_points ph\n",
+        "    GROUP BY ph.date_key\n",
+        ")\n",
+        "SELECT \n",
+        "    da.*,\n",
+        "    d.date as `date`,\n",
+        "    ROUND(da.mean_price * 100, 1) as mean_price_pounds,\n",
+        "    e.mean_price_pounds as early_price_pounds, \n",
+        "    l.mean_price_pounds as late_price_pounds\n",
+        "FROM daily da\n",
+        "INNER JOIN gold.petrol_prices.dates d ON da.date_key = d.date_key\n",
+        "INNER JOIN early_date e ON 1=1\n",
+        "INNER JOIN late_date l ON 1=1 "
+      ],
+      "parameters": [
+        {
+          "displayName": "p_date",
+          "keyword": "p_date",
+          "dataType": "DATE",
+          "complexType": "RANGE",
+          "defaultSelection": {
+            "range": {
+              "dataType": "DATE",
+              "min": {
+                "value": "2026-03-15T00:00:00.000"
+              },
+              "max": {
+                "value": "2026-03-20T00:00:00.000"
+              }
+            }
+          }
+        },
+        {
+          "displayName": "p_fuel",
+          "keyword": "p_fuel",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Unleaded"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "geo_postcode",
+          "keyword": "geo_postcode",
+          "dataType": "STRING",
+          "complexType": "MULTI",
+          "defaultSelection": {
+            "operator": {
+              "operator": "AND"
+            }
+          }
+        },
+        {
+          "displayName": "outward_postcode",
+          "keyword": "outward_postcode",
+          "dataType": "STRING",
+          "complexType": "MULTI",
+          "defaultSelection": {
+            "operator": {
+              "operator": "AND"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "db29243e",
+      "displayName": "Fuel Types",
+      "queryLines": [
+        "SELECT DISTINCT fuel_type_description\n",
+        "FROM gold.petrol_prices.fuel_types"
+      ]
+    },
+    {
+      "name": "8fcf1fcc",
+      "displayName": "Outward Postcode",
+      "queryLines": [
+        "SELECT DISTINCT geographic_postcode, outward_postcode\n",
+        "FROM gold.petrol_prices.postcodes\n",
+        "-- WHERE ARRAY_CONTAINS(:geo_postcode, geographic_postcode) OR :geo_postcode IS NULL"
+      ]
     }
   ],
   "pages": [
@@ -213,10 +347,6 @@
                     {
                       "name": "longitude",
                       "expression": "`longitude`"
-                    },
-                    {
-                      "name": "fuel_type_description",
-                      "expression": "`fuel_type_description`"
                     }
                   ],
                   "disaggregated": true
@@ -260,9 +390,6 @@
                   {
                     "fieldName": "forecourt_type",
                     "displayName": "Forecourt Type"
-                  },
-                  {
-                    "fieldName": "fuel_type_description"
                   }
                 ]
               }
@@ -2335,17 +2462,13 @@
             "name": "dates",
             "queries": [
               {
-                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_date",
+                "name": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f124751da41472bd03c5ccd705dc27_p_date",
                 "query": {
-                  "datasetName": "8f0664c5",
-                  "fields": [
+                  "datasetName": "e0216979",
+                  "parameters": [
                     {
-                      "name": "date",
-                      "expression": "`date`"
-                    },
-                    {
-                      "name": "date_associativity",
-                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                      "name": "p_date",
+                      "keyword": "p_date"
                     }
                   ],
                   "disaggregated": false
@@ -2375,8 +2498,8 @@
               "encodings": {
                 "fields": [
                   {
-                    "fieldName": "date",
-                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_date"
+                    "parameterName": "p_date",
+                    "queryName": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f124751da41472bd03c5ccd705dc27_p_date"
                   }
                 ]
               }
@@ -2394,9 +2517,9 @@
             "name": "fuel-type",
             "queries": [
               {
-                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_fuel_type_description",
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f12482da181688bbfeb625c1c00ace_fuel_type_description",
                 "query": {
-                  "datasetName": "8f0664c5",
+                  "datasetName": "db29243e",
                   "fields": [
                     {
                       "name": "fuel_type_description",
@@ -2405,6 +2528,19 @@
                     {
                       "name": "fuel_type_description_associativity",
                       "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f124751da41472bd03c5ccd705dc27_p_fuel",
+                "query": {
+                  "datasetName": "e0216979",
+                  "parameters": [
+                    {
+                      "name": "p_fuel",
+                      "keyword": "p_fuel"
                     }
                   ],
                   "disaggregated": false
@@ -2435,7 +2571,11 @@
                 "fields": [
                   {
                     "fieldName": "fuel_type_description",
-                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_fuel_type_description"
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f12482da181688bbfeb625c1c00ace_fuel_type_description"
+                  },
+                  {
+                    "parameterName": "p_fuel",
+                    "queryName": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f124751da41472bd03c5ccd705dc27_p_fuel"
                   }
                 ]
               }
@@ -2455,23 +2595,23 @@
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "8f0664c5",
+                  "datasetName": "e0216979",
                   "fields": [
                     {
-                      "name": "daily(date)",
-                      "expression": "DATE_TRUNC(\"DAY\", `date`)"
+                      "name": "date",
+                      "expression": "`date`"
                     },
                     {
-                      "name": "measure(mean)",
-                      "expression": "MEASURE(`mean`)"
+                      "name": "sum(mean_price)",
+                      "expression": "SUM(`mean_price`)"
                     },
                     {
-                      "name": "measure(upper_quartile)",
-                      "expression": "MEASURE(`upper_quartile`)"
+                      "name": "sum(upper_quartile_price)",
+                      "expression": "SUM(`upper_quartile_price`)"
                     },
                     {
-                      "name": "measure(lower_quartile)",
-                      "expression": "MEASURE(`lower_quartile`)"
+                      "name": "sum(lower_quartile_price)",
+                      "expression": "SUM(`lower_quartile_price`)"
                     }
                   ],
                   "disaggregated": false
@@ -2487,7 +2627,7 @@
               "widgetType": "line",
               "encodings": {
                 "x": {
-                  "fieldName": "daily(date)",
+                  "fieldName": "date",
                   "scale": {
                     "type": "temporal"
                   }
@@ -2498,13 +2638,13 @@
                   },
                   "fields": [
                     {
-                      "fieldName": "measure(mean)"
+                      "fieldName": "sum(mean_price)"
                     },
                     {
-                      "fieldName": "measure(upper_quartile)"
+                      "fieldName": "sum(upper_quartile_price)"
                     },
                     {
-                      "fieldName": "measure(lower_quartile)"
+                      "fieldName": "sum(lower_quartile_price)"
                     }
                   ]
                 }
@@ -2523,9 +2663,9 @@
             "name": "geographic-postcode",
             "queries": [
               {
-                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_geographic_postcode",
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f12489787e1b1fac651d8f6985e3cd_geographic_postcode",
                 "query": {
-                  "datasetName": "8f0664c5",
+                  "datasetName": "8fcf1fcc",
                   "fields": [
                     {
                       "name": "geographic_postcode",
@@ -2534,6 +2674,19 @@
                     {
                       "name": "geographic_postcode_associativity",
                       "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f124751da41472bd03c5ccd705dc27_geo_postcode",
+                "query": {
+                  "datasetName": "e0216979",
+                  "parameters": [
+                    {
+                      "name": "geo_postcode",
+                      "keyword": "geo_postcode"
                     }
                   ],
                   "disaggregated": false
@@ -2550,8 +2703,12 @@
               "encodings": {
                 "fields": [
                   {
+                    "parameterName": "geo_postcode",
+                    "queryName": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f124751da41472bd03c5ccd705dc27_geo_postcode"
+                  },
+                  {
                     "fieldName": "geographic_postcode",
-                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_geographic_postcode"
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f12489787e1b1fac651d8f6985e3cd_geographic_postcode"
                   }
                 ]
               }
@@ -2569,9 +2726,9 @@
             "name": "eabea5c6",
             "queries": [
               {
-                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_outward_postcode",
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f12489787e1b1fac651d8f6985e3cd_outward_postcode",
                 "query": {
-                  "datasetName": "8f0664c5",
+                  "datasetName": "8fcf1fcc",
                   "fields": [
                     {
                       "name": "outward_postcode",
@@ -2580,6 +2737,19 @@
                     {
                       "name": "outward_postcode_associativity",
                       "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f124751da41472bd03c5ccd705dc27_outward_postcode",
+                "query": {
+                  "datasetName": "e0216979",
+                  "parameters": [
+                    {
+                      "name": "outward_postcode",
+                      "keyword": "outward_postcode"
                     }
                   ],
                   "disaggregated": false
@@ -2596,8 +2766,12 @@
               "encodings": {
                 "fields": [
                   {
+                    "parameterName": "outward_postcode",
+                    "queryName": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f124751da41472bd03c5ccd705dc27_outward_postcode"
+                  },
+                  {
                     "fieldName": "outward_postcode",
-                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f1194dbb8d1f5ca83a3bdb0e75d02b_outward_postcode"
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f12489787e1b1fac651d8f6985e3cd_outward_postcode"
                   }
                 ]
               }
@@ -2608,6 +2782,75 @@
             "y": 0,
             "width": 3,
             "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "comparison-of-price-history-metrics",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "e0216979",
+                  "fields": [
+                    {
+                      "name": "early_price_pounds",
+                      "expression": "`early_price_pounds`"
+                    },
+                    {
+                      "name": "late_price_pounds",
+                      "expression": "`late_price_pounds`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Current Average",
+                "showDescription": true,
+                "description": "Comparison is with the beginning of the range"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "late_price_pounds",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "GBP",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 3
+                    }
+                  }
+                },
+                "target": {
+                  "fieldName": "early_price_pounds",
+                  "change": {
+                    "type": "percent"
+                  },
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "GBP",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 3
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 3,
+            "height": 4
           }
         }
       ],
