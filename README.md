@@ -19,7 +19,7 @@ In that volume (`bronze/petrol_prices/csv`), there should be three directories:
 |B7S|Diesel|
 |B7P|Premium Diesel|
 |B10|Biodiesel|
-|HVO|Hydrogen|
+|HVO|Hydrotreated Vegetable Oil|
 
 * `postcode`, that could contain at least one CSV file with at least the following columns:
     * `postcode`
