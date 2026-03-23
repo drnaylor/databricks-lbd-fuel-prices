@@ -209,13 +209,19 @@
         "    SELECT MIN(date_key) as early, MAX(date_key) as late FROM valid_data_points\n",
         "),\n",
         "early_date AS (\n",
-        "    SELECT ph.date_key, ROUND(AVG(price) / 100.0, 3) as mean_price_pounds\n",
+        "    SELECT \n",
+        "        ph.date_key, ROUND(AVG(price) / 100.0, 3) as mean_price_pounds,\n",
+        "        STDDEV(price / 100.0) as stddev_price_pounds,\n",
+        "        STDDEV(price) as stddev_price_pence\n",
         "    FROM valid_data_points ph\n",
         "    LEFT SEMI JOIN extremes ON extremes.early = ph.date_key\n",
         "    GROUP BY ph.date_key\n",
         "),\n",
         "late_date AS (\n",
-        "    SELECT ph.date_key, ROUND(AVG(price) / 100.0, 3) as mean_price_pounds\n",
+        "    SELECT \n",
+        "        ph.date_key, ROUND(AVG(price) / 100.0, 3) as mean_price_pounds,\n",
+        "        STDDEV(price / 100.0) as stddev_price_pounds,\n",
+        "        STDDEV(price) as stddev_price_pence\n",
         "    FROM valid_data_points ph\n",
         "    LEFT SEMI JOIN extremes ON extremes.late = ph.date_key\n",
         "    GROUP BY ph.date_key\n",
@@ -227,7 +233,8 @@
         "        MAX(price) as max_price,\n",
         "        PERCENTILE(price, 0.25) as lower_quartile_price,\n",
         "        MEDIAN(price) as median_price,\n",
-        "        PERCENTILE(price, 0.75) as upper_quartile_price\n",
+        "        PERCENTILE(price, 0.75) as upper_quartile_price,\n",
+        "        STDDEV(price) as stddev_price\n",
         "    FROM valid_data_points ph\n",
         "    GROUP BY ph.date_key\n",
         ")\n",
@@ -236,7 +243,11 @@
         "    d.date as `date`,\n",
         "    ROUND(da.mean_price * 100, 1) as mean_price_pounds,\n",
         "    e.mean_price_pounds as early_price_pounds, \n",
-        "    l.mean_price_pounds as late_price_pounds\n",
+        "    l.mean_price_pounds as late_price_pounds,\n",
+        "    e.stddev_price_pounds as early_std_dev_pounds, \n",
+        "    l.stddev_price_pounds as late_std_dev_pounds,\n",
+        "    e.stddev_price_pence as early_std_dev_pence, \n",
+        "    l.stddev_price_pence as late_std_dev_pence\n",
         "FROM daily da\n",
         "INNER JOIN gold.petrol_prices.dates d ON da.date_key = d.date_key\n",
         "INNER JOIN early_date e ON 1=1\n",
@@ -314,6 +325,13 @@
         "SELECT DISTINCT geographic_postcode, outward_postcode\n",
         "FROM gold.petrol_prices.postcodes\n",
         "-- WHERE ARRAY_CONTAINS(:geo_postcode, geographic_postcode) OR :geo_postcode IS NULL"
+      ]
+    },
+    {
+      "name": "2257de92",
+      "displayName": "Unique Dates Extracted from Records",
+      "queryLines": [
+        "SELECT DISTINCT date FROM gold.petrol_prices.dates;"
       ]
     }
   ],
@@ -2027,7 +2045,7 @@
     },
     {
       "name": "70348b10",
-      "displayName": "Per Day",
+      "displayName": "Daily Prices",
       "layout": [
         {
           "widget": {
@@ -2419,15 +2437,6 @@
               "encodings": {
                 "value": {
                   "fieldName": "measure(mean_pounds)",
-                  "format": {
-                    "type": "number-currency",
-                    "currencyCode": "GBP",
-                    "abbreviation": "compact",
-                    "decimalPlaces": {
-                      "type": "max",
-                      "places": 3
-                    }
-                  },
                   "style": {
                     "rules": [
                       {
@@ -2437,6 +2446,15 @@
                         "color": "#00A972"
                       }
                     ]
+                  },
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "GBP",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 3
+                    }
                   }
                 }
               }
@@ -2461,6 +2479,23 @@
           "widget": {
             "name": "dates",
             "queries": [
+              {
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f126a4b4251370bb1cd8be7d1a7c19_date",
+                "query": {
+                  "datasetName": "2257de92",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
               {
                 "name": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f124751da41472bd03c5ccd705dc27_p_date",
                 "query": {
@@ -2500,6 +2535,10 @@
                   {
                     "parameterName": "p_date",
                     "queryName": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f124751da41472bd03c5ccd705dc27_p_date"
+                  },
+                  {
+                    "fieldName": "date",
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f126a4b4251370bb1cd8be7d1a7c19_date"
                   }
                 ]
               }
@@ -2602,19 +2641,19 @@
                       "expression": "`date`"
                     },
                     {
-                      "name": "sum(mean_price)",
-                      "expression": "SUM(`mean_price`)"
+                      "name": "mean_price",
+                      "expression": "`mean_price`"
                     },
                     {
-                      "name": "sum(upper_quartile_price)",
-                      "expression": "SUM(`upper_quartile_price`)"
+                      "name": "upper_quartile_price",
+                      "expression": "`upper_quartile_price`"
                     },
                     {
-                      "name": "sum(lower_quartile_price)",
-                      "expression": "SUM(`lower_quartile_price`)"
+                      "name": "lower_quartile_price",
+                      "expression": "`lower_quartile_price`"
                     }
                   ],
-                  "disaggregated": false
+                  "disaggregated": true
                 }
               }
             ],
@@ -2628,6 +2667,7 @@
               "encodings": {
                 "x": {
                   "fieldName": "date",
+                  "displayName": "Date",
                   "scale": {
                     "type": "temporal"
                   }
@@ -2638,15 +2678,21 @@
                   },
                   "fields": [
                     {
-                      "fieldName": "sum(mean_price)"
+                      "fieldName": "mean_price",
+                      "displayName": "Mean Price"
                     },
                     {
-                      "fieldName": "sum(upper_quartile_price)"
+                      "fieldName": "upper_quartile_price",
+                      "displayName": "Upper Quartile"
                     },
                     {
-                      "fieldName": "sum(lower_quartile_price)"
+                      "fieldName": "lower_quartile_price",
+                      "displayName": "Lower Quartile"
                     }
                   ]
+                },
+                "label": {
+                  "show": false
                 }
               }
             }
@@ -2850,6 +2896,79 @@
             "x": 0,
             "y": 9,
             "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "standard-deviation-of-prices",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "e0216979",
+                  "fields": [
+                    {
+                      "name": "early_std_dev_pence",
+                      "expression": "`early_std_dev_pence`"
+                    },
+                    {
+                      "name": "late_std_dev_pence",
+                      "expression": "`late_std_dev_pence`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Price Standard Deviation",
+                "showDescription": true,
+                "description": "Measuring the spread of prices between forecourts (based on price in pence per litre)"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "late_std_dev_pence",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "all"
+                    },
+                    "significantFigures": {
+                      "type": "max",
+                      "figures": 5
+                    }
+                  }
+                },
+                "target": {
+                  "fieldName": "early_std_dev_pence",
+                  "change": {
+                    "type": "percent"
+                  },
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "all"
+                    },
+                    "significantFigures": {
+                      "type": "exact",
+                      "figures": 5
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 9,
+            "width": 4,
             "height": 4
           }
         }
