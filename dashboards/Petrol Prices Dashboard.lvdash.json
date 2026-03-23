@@ -365,6 +365,10 @@
                     {
                       "name": "longitude",
                       "expression": "`longitude`"
+                    },
+                    {
+                      "name": "postcode",
+                      "expression": "`postcode`"
                     }
                   ],
                   "disaggregated": true
@@ -408,6 +412,9 @@
                   {
                     "fieldName": "forecourt_type",
                     "displayName": "Forecourt Type"
+                  },
+                  {
+                    "fieldName": "postcode"
                   }
                 ]
               }
@@ -753,6 +760,10 @@
                     {
                       "name": "longitude",
                       "expression": "`longitude`"
+                    },
+                    {
+                      "name": "postcode",
+                      "expression": "`postcode`"
                     }
                   ],
                   "disaggregated": true
@@ -790,6 +801,9 @@
                   {
                     "fieldName": "forecourt_type",
                     "displayName": "Forecourt Type"
+                  },
+                  {
+                    "fieldName": "postcode"
                   }
                 ]
               }
