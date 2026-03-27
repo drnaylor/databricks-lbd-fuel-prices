@@ -44,6 +44,7 @@
         "  LEFT OUTER JOIN postcodes sp ON sp.postcode = :start_postcode\n",
         "  WHERE (NOT array_contains(:forecourts, brand_name) OR :forecourts IS NULL)\n",
         "    AND l.last_update BETWEEN DATE_TRUNC('DAY', DATE_SUB(CURRENT_DATE(), 14)) AND CURRENT_TIMESTAMP() -- we only want the last 14 days of records, as if it hasn't updated since then it's really likely to be out of date.\n",
+        "    AND f.fuel_type_description = :fuel_type -- we're only interest in the given fuel\n",
         "),\n",
         "mpg_calc AS (\n",
         "  SELECT \n",
@@ -152,6 +153,21 @@
               "operator": "AND"
             }
           }
+        },
+        {
+          "displayName": "fuel_type",
+          "keyword": "fuel_type",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Unleaded"
+                }
+              ]
+            }
+          }
         }
       ],
       "catalog": "gold",
@@ -210,7 +226,9 @@
         "),\n",
         "early_date AS (\n",
         "    SELECT \n",
-        "        ph.date_key, ROUND(AVG(price) / 100.0, 3) as mean_price_pounds,\n",
+        "        ph.date_key, \n",
+        "        ROUND(AVG(price) / 100.0, 3) as mean_price_pounds,\n",
+        "        MEDIAN(price) / 100.0 as median_price_pounds,\n",
         "        STDDEV(price / 100.0) as stddev_price_pounds,\n",
         "        STDDEV(price) as stddev_price_pence\n",
         "    FROM valid_data_points ph\n",
@@ -219,7 +237,9 @@
         "),\n",
         "late_date AS (\n",
         "    SELECT \n",
-        "        ph.date_key, ROUND(AVG(price) / 100.0, 3) as mean_price_pounds,\n",
+        "        ph.date_key, \n",
+        "        ROUND(AVG(price) / 100.0, 3) as mean_price_pounds,\n",
+        "        MEDIAN(price) / 100.0 as median_price_pounds,\n",
         "        STDDEV(price / 100.0) as stddev_price_pounds,\n",
         "        STDDEV(price) as stddev_price_pence\n",
         "    FROM valid_data_points ph\n",
@@ -247,7 +267,9 @@
         "    e.stddev_price_pounds as early_std_dev_pounds, \n",
         "    l.stddev_price_pounds as late_std_dev_pounds,\n",
         "    e.stddev_price_pence as early_std_dev_pence, \n",
-        "    l.stddev_price_pence as late_std_dev_pence\n",
+        "    l.stddev_price_pence as late_std_dev_pence,\n",
+        "    e.median_price_pounds as early_median_pounds,\n",
+        "    l.median_price_pounds as late_median_pounds\n",
         "FROM daily da\n",
         "INNER JOIN gold.petrol_prices.dates d ON da.date_key = d.date_key\n",
         "INNER JOIN early_date e ON 1=1\n",
@@ -983,9 +1005,9 @@
             "name": "fuel-type",
             "queries": [
               {
-                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_fuel_type_description",
+                "name": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f12482da181688bbfeb625c1c00ace_fuel_type_description",
                 "query": {
-                  "datasetName": "be70826a",
+                  "datasetName": "db29243e",
                   "fields": [
                     {
                       "name": "fuel_type_description",
@@ -994,6 +1016,19 @@
                     {
                       "name": "fuel_type_description_associativity",
                       "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f11d2eb65c1cdb902345466d3e8cc0_fuel_type",
+                "query": {
+                  "datasetName": "be70826a",
+                  "parameters": [
+                    {
+                      "name": "fuel_type",
+                      "keyword": "fuel_type"
                     }
                   ],
                   "disaggregated": false
@@ -1007,24 +1042,16 @@
                 "title": "Fuel Type"
               },
               "disallowAll": true,
-              "selection": {
-                "defaultSelection": {
-                  "values": {
-                    "dataType": "STRING",
-                    "values": [
-                      {
-                        "value": "Unleaded"
-                      }
-                    ]
-                  }
-                }
-              },
               "widgetType": "filter-single-select",
               "encodings": {
                 "fields": [
                   {
+                    "parameterName": "fuel_type",
+                    "queryName": "parameter_dashboards/01f10913b56116578d36656de34473ca/datasets/01f11d2eb65c1cdb902345466d3e8cc0_fuel_type"
+                  },
+                  {
                     "fieldName": "fuel_type_description",
-                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f10b54897b1719972c9f05b7f50a71_fuel_type_description"
+                    "queryName": "dashboards/01f10913b56116578d36656de34473ca/datasets/01f12482da181688bbfeb625c1c00ace_fuel_type_description"
                   }
                 ]
               }
@@ -2665,6 +2692,10 @@
                     {
                       "name": "lower_quartile_price",
                       "expression": "`lower_quartile_price`"
+                    },
+                    {
+                      "name": "median_price",
+                      "expression": "`median_price`"
                     }
                   ],
                   "disaggregated": true
@@ -2702,6 +2733,10 @@
                     {
                       "fieldName": "lower_quartile_price",
                       "displayName": "Lower Quartile"
+                    },
+                    {
+                      "fieldName": "median_price",
+                      "displayName": "Median Price"
                     }
                   ]
                 },
