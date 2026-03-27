@@ -18,6 +18,8 @@ ordered AS (
         date_key,
         -- We use a far in future date key rather than today to avoid missing today off when
         -- we remove a day from this later.
+        -- Having this here allows us to eliminate multiple prices on the same day later, and
+        -- also filter out each day once we aggregate
         LEAD(date_key, 1, 99991231) OVER (PARTITION BY forecourt_id, fuel_type_code ORDER BY date_key) AS end_date_key,
         postcode,
         forecourt_id,
